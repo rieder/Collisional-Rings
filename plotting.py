@@ -1,3 +1,4 @@
+import sys
 from amuse.lab import *
 import matplotlib.pyplot as plt
 
@@ -106,23 +107,21 @@ def plot_system(
     xmax = [2., 3.]
     ymin = [2., 0.5]
     ymax = [2., 0.5]
-    REarth_per_point = [170,236]
 
+    fig.canvas.draw()
     #FIXME Plot Roche radius
     for i in range(len(axes)):
         ax = axes[i]
 
         if scatter:
-            ax.scatter(
+            scat = ax.scatter(
                     (x_axes[i]).value_in(length_unit),
                     (y_axes[i]).value_in(length_unit),
-                    s   = (
-                        REarth_per_point[i] * 
-                        particles.radius.value_in(length_unit)
-                        )**2,
-                    edgecolors="none",
-                    facecolors=particles.colour,
-                    alpha = 0.5,
+                    marker      = 'o',
+                    s           = 1,
+                    edgecolors  = "none",
+                    facecolors  = particles.colour,
+                    alpha       = 0.5,
                     )
         else:
             circles = []
@@ -134,9 +133,9 @@ def plot_system(
                                 (y_axes[i][j]).value_in(length_unit),
                                 ),
                             particles[j].radius.value_in(length_unit),
-                            facecolor=particles[j].colour,
-                            edgecolor="none",
-                            alpha=0.5,
+                            facecolor   = particles[j].colour,
+                            edgecolor   = "none",
+                            alpha       = 0.5,
                             )
                         )
                 ax.add_artist(circles[-1])
@@ -146,6 +145,17 @@ def plot_system(
         ax.set_ylim(-ymin[i],ymax[i])
         ax.set_xlabel("[%s]"%length_unit)
         ax.set_ylabel("[%s]"%length_unit)
+
+        r       = particles.radius.value_in(length_unit)
+        N       = len(particles)
+        # Calculate radius in pixels :
+        rr_pix  = (ax.transData.transform(np.vstack([r, r]).T) -
+                  ax.transData.transform(np.vstack([np.zeros(N), np.zeros(N)]).T))
+        rpix, _ = rr_pix.T
+
+        # Calculate and update size in points:
+        size_pt = (2*rpix/fig.dpi*72)**2
+        scat.set_sizes(size_pt)
     plt.savefig(plotname)
     plt.close(fig)
     return
@@ -153,9 +163,5 @@ def plot_system(
 
 
 if __name__ == "__main__":
-    a = new_plummer_model(2)
-    a.radius = 10 | nbody_system.length
-    timestep = 0.5 | nbody_system.time
-    b = a.copy()
-    b.position += b.velocity * timestep
-    plot_interaction(a,b)
+    particles = read_set_from_file(sys.argv[1],'amuse')
+    plot_system(particles, "plot.png")
