@@ -11,6 +11,7 @@ cd amuse/src/amuse/community/rebound/
 python download_http.py 
 cd ../../../../../
 cp patches/rebound_Makefile.defs amuse/src/amuse/community/rebound/src/rebound/src/Makefile.defs 
+cp patches/rebound_interface.cc amuse/src/amuse/community/rebound/interface.cc
 
 # Build AMUSE
 cd amuse/
