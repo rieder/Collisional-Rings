@@ -1,5 +1,5 @@
 # coding: utf-8
-import sys
+import os,sys
 
 import numpy as np
 
@@ -593,6 +593,8 @@ class Planetary_Disc(object):
         #plot_system(self.particles, "latest.png")
 
 def main():
+    backupdir = "./backup/"
+    plotdir   = "./plots/"
     # Read the initial conditions file provided. This uses "Giant Impact" units.
     
     mass_unit   = 1|units.MEarth
@@ -626,11 +628,14 @@ def main():
             particles.position -= particles.center_of_mass()
             particles.velocity -= particles.center_of_mass_velocity()
             
-            
             particles[0].type   = "planet"
             particles[1:].type  = "disc"
+            backupdir += filename.split('/')[-1][:-4] + "/"
+            plotdir   += filename.split('/')[-1][:-4] + "/"
         elif ext == "hdf5":
             particles = read_set_from_file(filename, "amuse")
+            backupdir += filename.split('/')[-1][:-5] + "/"
+            plotdir   += filename.split('/')[-1][:-5] + "/"
         else:
             print "Unknown filetype"
             exit()
@@ -638,6 +643,8 @@ def main():
     else:
         particles = initial_particles(10000)
         write_set_to_file(particles,"this_run.hdf5","amuse",)
+    os.makedirs(backupdir)
+    os.makedirs(plotdir)
 
     particles[0].colour = "blue"
     particles[1:].colour = "black"
@@ -681,12 +688,12 @@ def main():
         if time >= plot_time:
             plot_system(
                     planetary_disc.particles,
-                    "plot-%05i.png"%plot,
+                    "%s/plot-%05i.png"%(plotdir,plot),
                     )
             plot += 1
             plot_time += plot_timestep
         if time >= backup_time:
-            planetary_disc.write_backup(filename="savefile-%i.hdf5"%backup)
+            planetary_disc.write_backup(filename="%s/savefile-%i.hdf5"%(backupdir,backup))
             backup += 1
             backup_time += backup_timestep
         if planetary_disc.model_time >= time:
