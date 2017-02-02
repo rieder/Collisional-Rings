@@ -643,8 +643,13 @@ def main():
     else:
         particles = initial_particles(10000)
         write_set_to_file(particles,"this_run.hdf5","amuse",)
-    os.makedirs(backupdir)
-    os.makedirs(plotdir)
+    try:
+        os.makedirs(backupdir)
+        os.makedirs(plotdir)
+    except:
+        #FIXME make a new dir in this case, to prevent overwriting old files
+        # use a datetime stamp
+        print "#plotdir and/or backupdir already present"
 
     particles[0].colour = "blue"
     particles[1:].colour = "black"
