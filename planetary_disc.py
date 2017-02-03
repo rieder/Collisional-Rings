@@ -655,8 +655,14 @@ def main():
         plotdir     += "-rubblepile"
     backupdir   += "/"
     plotdir     += "/"
-    os.makedirs(backupdir)
-    os.makedirs(plotdir)
+    try:
+        os.makedirs(backupdir)
+        os.makedirs(plotdir)
+    except:
+        #FIXME make a new dir in this case, to prevent overwriting old files
+        # use a datetime stamp
+        print "#plotdir and/or backupdir already present"
+        exit()
 
     particles[0].colour = "blue"
     particles[1:].colour = "black"
