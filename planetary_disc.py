@@ -476,8 +476,9 @@ class Planetary_Disc(object):
         """
         Initialise particles, identify subgroups.
         """
-        self.f              = 0. if options["rubblepile"] else 1.0
-        convert_nbody       = options["converter"]
+        self.options        = options
+        convert_nbody       = self.options["converter"]
+        self.f              = 0. if self.options["rubblepile"] else 1.0
         self.converter      = convert_nbody if convert_nbody != None else (
                 nbody_system.nbody_to_si(
                     1|nbody_system.length, 
@@ -576,15 +577,15 @@ class Planetary_Disc(object):
 
     def resolve_encounters(
             self,
-            f   = 1.0 # fraction of the Hill radius
             ):
+        #f   = 1.0 # fraction of the Hill radius
 
         resolution = Resolve_Encounters(
                 self.collision_detection.particles(0).copy(),
                 self.collision_detection.particles(1).copy(),
                 primary = self.planet[0].copy(),
                 time    = self.model_time,
-                f       = f,
+                f       = self.f,
                 )
         self.remove_particles(resolution.particles_removed)
         from_encounter_to_particles = \
