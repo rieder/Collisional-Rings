@@ -472,10 +472,12 @@ class Planetary_Disc(object):
     Class to resolve encounters and collisions in a disc around a planet.
     Collisions with the planet are also taken into account.
     """
-    def __init__(self, convert_nbody = None):
+    def __init__(self, options):
         """
         Initialise particles, identify subgroups.
         """
+        self.f              = 0. if options["rubblepile"] else 1.0
+        convert_nbody       = options["converter"]
         self.converter      = convert_nbody if convert_nbody != None else (
                 nbody_system.nbody_to_si(
                     1|nbody_system.length, 
@@ -593,13 +595,17 @@ class Planetary_Disc(object):
         #plot_system(self.particles, "latest.png")
 
 def main():
-    backupdir = "./backup/"
-    plotdir   = "./plots/"
+    options     = {}
+    options["rubblepile"]   = True
+
+    backupdir   = "./backup/"
+    plotdir     = "./plots/"
     # Read the initial conditions file provided. This uses "Giant Impact" units.
     
     mass_unit   = 1|units.MEarth
     length_unit = get_roche_limit_radius(3.3|units.g * units.cm**-3)
     converter   = nbody_system.nbody_to_si(mass_unit, length_unit)
+    options["converter"] = converter
 
     time = 0|units.yr
     if len(sys.argv) >= 2:
@@ -630,12 +636,12 @@ def main():
             
             particles[0].type   = "planet"
             particles[1:].type  = "disc"
-            backupdir += filename.split('/')[-1][:-4] + "/"
-            plotdir   += filename.split('/')[-1][:-4] + "/"
+            backupdir += filename.split('/')[-1][:-4] 
+            plotdir   += filename.split('/')[-1][:-4] 
         elif ext == "hdf5":
             particles = read_set_from_file(filename, "amuse")
-            backupdir += filename.split('/')[-1][:-5] + "/"
-            plotdir   += filename.split('/')[-1][:-5] + "/"
+            backupdir += filename.split('/')[-1][:-5] 
+            plotdir   += filename.split('/')[-1][:-5] 
         else:
             print "Unknown filetype"
             exit()
@@ -643,6 +649,12 @@ def main():
     else:
         particles = initial_particles(10000)
         write_set_to_file(particles,"this_run.hdf5","amuse",)
+
+    if options["rubblepile"]:
+        backupdir   += "-rubblepile"
+        plotdir     += "-rubblepile"
+    backupdir   += "/"
+    plotdir     += "/"
     os.makedirs(backupdir)
     os.makedirs(plotdir)
 
@@ -653,7 +665,7 @@ def main():
     #gravity = ph4(converter)
     gravity = Rebound(converter)
 
-    planetary_disc = Planetary_Disc(convert_nbody=converter)
+    planetary_disc = Planetary_Disc(options)
     planetary_disc.add_integrator(gravity)
     planetary_disc.add_particles(particles)
 
