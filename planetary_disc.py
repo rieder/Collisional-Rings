@@ -337,24 +337,24 @@ class Resolve_Encounters(object):
     def resolve_rebounders(
             self,
             move_particles = False,
-            correct_for_multiple_collisions = False,
+            correct_for_multiple_collisions = True,
             ):
         
         A = self.all_encounters_A[self.not_merging].copy()
         B = self.all_encounters_B[self.not_merging].copy()
 
-        #if move_particles:
-        #    # Try to make sure the radii no longer overlap
-        #    # This fails because we should be looking in a rotating frame... 
-        #    
-        #    # First, calculate the time that they have been overlapping
-        #    dt  = (
-        #            (A.position-B.position).lengths() / 
-        #            (A.velocity-B.velocity).lengths()
-        #            )
-        #    # Second, move them to the point of first collision
-        #    A.position -= dt * A.velocity
-        #    B.position -= dt * B.velocity
+        if move_particles:
+            # Try to make sure the radii no longer overlap
+            # This fails because we should be looking in a rotating frame... 
+            
+            # First, calculate the time that they have been overlapping
+            dt  = (
+                    (A.position-B.position).lengths() / 
+                    (A.velocity-B.velocity).lengths()
+                    )
+            # Second, move them to the point of first collision
+            A.position -= dt * A.velocity
+            B.position -= dt * B.velocity
 
         # Find all particles that are in this list more than once
 
@@ -394,12 +394,12 @@ class Resolve_Encounters(object):
                 d_B = B.select(lambda k: k == B[i].key,["key"])
                 d_B.velocity = B[i].velocity
 
-        #if move_particles:
-        #    # Then, move them forward again
-        #    A.position += dt * A.velocity
-        #    B.position += dt * B.velocity
-        #    # NOTE: if dt is large, this can cause trouble...
-        #    # this may be an additional kick, but it seems fair enough...
+        if move_particles:
+            # Then, move them forward again
+            A.position += dt * A.velocity
+            B.position += dt * B.velocity
+            # NOTE: if dt is large, this can cause trouble...
+            # this may be an additional kick, but it seems fair enough...
 
         # Sync
         self.particles_modified.add_particles(A)
