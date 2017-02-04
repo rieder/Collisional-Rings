@@ -367,6 +367,7 @@ class Resolve_Encounters(object):
                 ]
 
         pairs_appearing_more_than_once = np.array([])
+        print "Pairs with particles in more than one collision: %i"%len(pairs_appearing_more_than_once)
         for key in keys_appearing_more_than_once:
             pairs_appearing_more_than_once = np.append(
                     pairs_appearing_more_than_once,
