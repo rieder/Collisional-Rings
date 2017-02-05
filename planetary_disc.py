@@ -336,8 +336,8 @@ class Resolve_Encounters(object):
 
     def resolve_rebounders(
             self,
-            move_particles = False,
-            correct_for_multiple_collisions = True,
+            move_particles = True,
+            correct_for_multiple_collisions = False,
             ):
         
         A = self.all_encounters_A[self.not_merging].copy()
@@ -353,8 +353,12 @@ class Resolve_Encounters(object):
                     (A.velocity-B.velocity).lengths()
                     )
             # Second, move them to the point of first collision
-            A.position -= dt * A.velocity
-            B.position -= dt * B.velocity
+            A.x -= dt * A.vx
+            B.x -= dt * B.vx
+            A.y -= dt * A.vy
+            B.y -= dt * B.vy
+            A.z -= dt * A.vz
+            B.z -= dt * B.vz
 
         # Find all particles that are in this list more than once
 
@@ -397,8 +401,12 @@ class Resolve_Encounters(object):
 
         if move_particles:
             # Then, move them forward again
-            A.position += dt * A.velocity
-            B.position += dt * B.velocity
+            A.x += dt * A.vx
+            B.x += dt * B.vx
+            A.y += dt * A.vy
+            B.y += dt * B.vy
+            A.z += dt * A.vz
+            B.z += dt * B.vz
             # NOTE: if dt is large, this can cause trouble...
             # this may be an additional kick, but it seems fair enough...
 
