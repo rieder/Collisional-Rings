@@ -171,7 +171,7 @@ class Resolve_Encounters(object):
         v_B_prime   = v_B - u_prime * (m_A/M).reshape((len(m_A),1))
 
         if return_timestep:
-            dt = r.lengths() / u_n_prime.lengths()
+            dt = (r.lengths() - R_A - R_B) / u_n.lengths()
             return v_A_prime, v_B_prime, dt
         else:
             return v_A_prime, v_B_prime
