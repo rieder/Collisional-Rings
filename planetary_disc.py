@@ -125,7 +125,6 @@ class Resolve_Encounters(object):
             self,
             A,
             B,
-            return_timestep = False,
             ):
         epsilon_n   = self.epsilon_n
         epsilon_t   = self.epsilon_t
@@ -135,7 +134,7 @@ class Resolve_Encounters(object):
         m_B = B.mass
         M   = m_A + m_B
         mu  = m_A * m_B / M
-        r   = B.position - A.position
+        r   = B.position - A.position # Distance between particle centres
         v_A = A.velocity
         v_B = B.velocity
         v   = v_B - v_A
@@ -170,11 +169,7 @@ class Resolve_Encounters(object):
         v_A_prime   = v_A + u_prime * (m_B/M).reshape((len(m_B),1))
         v_B_prime   = v_B - u_prime * (m_A/M).reshape((len(m_A),1))
 
-        if return_timestep:
-            dt = (r.lengths() - R_A - R_B) / u_n.lengths()
-            return v_A_prime, v_B_prime, dt
-        else:
-            return v_A_prime, v_B_prime
+        return v_A_prime, v_B_prime
 
     def get_jacobi_energy(
             self,
@@ -376,11 +371,10 @@ class Resolve_Encounters(object):
                 ))
 
         
-        A_modified.velocity, B_modified.velocity, dt = \
+        A_modified.velocity, B_modified.velocity = \
                 self.get_velocity_after_encounter(
                         A_modified,
                         B_modified,
-                        return_timestep = True,
                         )
         #A.velocity, B.velocity = \
 
@@ -405,20 +399,28 @@ class Resolve_Encounters(object):
             #        (A.velocity-B.velocity).lengths()
             #        )
             # Second, move them to the point of first collision
-            A_modified.x -= dt * A_original.vx
-            B_modified.x -= dt * B_original.vx
-            A_modified.y -= dt * A_original.vy
-            B_modified.y -= dt * B_original.vy
-            A_modified.z -= dt * A_original.vz
-            B_modified.z -= dt * B_original.vz
-            # Then, move them forward again with the new velocities
-            A_modified.x += dt * A_modified.vx
-            B_modified.x += dt * B_modified.vx
-            A_modified.y += dt * A_modified.vy
-            B_modified.y += dt * B_modified.vy
-            A_modified.z += dt * A_modified.vz
-            B_modified.z += dt * B_modified.vz
-            # NOTE: if dt is large, this can cause trouble...
+            m_A = A_modified.mass
+            m_B = A_modified.mass
+            M   = m_A + m_B
+
+            r   = B_modified.position - A_modified.position
+            #Distance the particles are overlapping:
+            d   = r.lengths() - B_modified.radius - A_modified.radius
+
+            n_hat   = VectorQuantity(
+                    (
+                        r / 
+                        r.lengths().reshape((len(r),1))
+                        ),
+                    units.none,
+                    )
+
+            #Displacement post-velocity change:
+            disp = (1+self.epsilon_n) * d.reshape((len(d),1)) * n_hat
+
+            A_modified.position += (m_B/M).reshape((len(M),1)) * disp
+            B_modified.position -= (m_A/M).reshape((len(M),1)) * disp
+
             # this may be an additional kick, but it seems fair enough...
 
         # Sync
