@@ -125,6 +125,7 @@ class Resolve_Encounters(object):
             self,
             A,
             B,
+            return_timestep = False,
             ):
         epsilon_n   = self.epsilon_n
         epsilon_t   = self.epsilon_t
@@ -168,8 +169,12 @@ class Resolve_Encounters(object):
 
         v_A_prime   = v_A + u_prime * (m_B/M).reshape((len(m_B),1))
         v_B_prime   = v_B - u_prime * (m_A/M).reshape((len(m_A),1))
-        return v_A_prime, v_B_prime
 
+        if return_timestep:
+            dt = r.lengths() / u_n_prime.lengths()
+            return v_A_prime, v_B_prime, dt
+        else:
+            return v_A_prime, v_B_prime
 
     def get_jacobi_energy(
             self,
@@ -340,31 +345,16 @@ class Resolve_Encounters(object):
             correct_for_multiple_collisions = False,
             ):
         
-        A = self.all_encounters_A[self.not_merging].copy()
-        B = self.all_encounters_B[self.not_merging].copy()
-
-        if move_particles:
-            # Try to make sure the radii no longer overlap
-            # This fails because we should be looking in a rotating frame... 
-            
-            # First, calculate the time that they have been overlapping
-            dt  = (
-                    (A.position-B.position).lengths() / 
-                    (A.velocity-B.velocity).lengths()
-                    )
-            # Second, move them to the point of first collision
-            A.x -= dt * A.vx
-            B.x -= dt * B.vx
-            A.y -= dt * A.vy
-            B.y -= dt * B.vy
-            A.z -= dt * A.vz
-            B.z -= dt * B.vz
+        A_original = self.all_encounters_A[self.not_merging]
+        B_original = self.all_encounters_B[self.not_merging]
+        A_modified = A_original.copy()
+        B_modified = B_original.copy()
 
         # Find all particles that are in this list more than once
 
-        allkeys = np.unique(np.append(A.key,B.key))
+        allkeys = np.unique(np.append(A_modified.key,B_modified.key))
         bins = allkeys.searchsorted(
-                np.append(A.key,B.key)
+                np.append(A_modified.key,B_modified.key)
                 )
         keys_appearing_more_than_once = allkeys[
                 np.where(np.bincount(bins) > 1)
@@ -375,44 +365,61 @@ class Resolve_Encounters(object):
         for key in keys_appearing_more_than_once:
             pairs_appearing_more_than_once = np.append(
                     pairs_appearing_more_than_once,
-                    np.where(A.key == key),
+                    np.where(A_modified.key == key),
                     )
             pairs_appearing_more_than_once = np.append(
                     pairs_appearing_more_than_once,
-                    np.where(B.key == key),
+                    np.where(B_modified.key == key),
                     )
         pairs_appearing_more_than_once = np.uint64(np.unique(
                 pairs_appearing_more_than_once,
                 ))
+
         
-        A.velocity, B.velocity = \
-                        self.get_velocity_after_encounter(A,B)
+        A_modified.velocity, B_modified.velocity, dt = \
+                self.get_velocity_after_encounter(A,B,return_timestep = True)
+        #A.velocity, B.velocity = \
 
         if correct_for_multiple_collisions:
             for i in pairs_appearing_more_than_once:
-                A_i = A[i:i+1] # This makes it a particle set instead of a particle
-                B_i = B[i:i+1]
+                A_i = A_modified[i:i+1] # This makes it a particle set instead of a particle
+                B_i = B_modified[i:i+1]
                 A_i.velocity, B_i.velocity = \
                         self.get_velocity_after_encounter(A_i, B_i)
-                d_A = A.select(lambda k: k == A[i].key,["key"])
-                d_A.velocity = A[i].velocity
-                d_B = B.select(lambda k: k == B[i].key,["key"])
-                d_B.velocity = B[i].velocity
+                d_A = A_modified.select(lambda k: k == A_modified[i].key,["key"])
+                d_A.velocity = A_modified[i].velocity
+                d_B = B_modified.select(lambda k: k == B_modified[i].key,["key"])
+                d_B.velocity = B_modified[i].velocity
 
         if move_particles:
-            # Then, move them forward again
-            A.x += dt * A.vx
-            B.x += dt * B.vx
-            A.y += dt * A.vy
-            B.y += dt * B.vy
-            A.z += dt * A.vz
-            B.z += dt * B.vz
+            # Try to make sure the radii no longer overlap
+            # This fails because we should be looking in a rotating frame... 
+            
+            # First, calculate the time that they have been overlapping
+            #dt  = (
+            #        (A.position-B.position).lengths() / 
+            #        (A.velocity-B.velocity).lengths()
+            #        )
+            # Second, move them to the point of first collision
+            A_modified.x -= dt * A_original.vx
+            B_modified.x -= dt * B_original.vx
+            A_modified.y -= dt * A_original.vy
+            B_modified.y -= dt * B_original.vy
+            A_modified.z -= dt * A_original.vz
+            B_modified.z -= dt * B_original.vz
+            # Then, move them forward again with the new velocities
+            A_modified.x += dt * A_modified.vx
+            B_modified.x += dt * B_modified.vx
+            A_modified.y += dt * A_modified.vy
+            B_modified.y += dt * B_modified.vy
+            A_modified.z += dt * A_modified.vz
+            B_modified.z += dt * B_modified.vz
             # NOTE: if dt is large, this can cause trouble...
             # this may be an additional kick, but it seems fair enough...
 
         # Sync
-        self.particles_modified.add_particles(A)
-        self.particles_modified.add_particles(B)
+        self.particles_modified.add_particles(A_modified)
+        self.particles_modified.add_particles(B_modified)
 
 
     def resolve_mergers(
