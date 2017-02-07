@@ -377,7 +377,11 @@ class Resolve_Encounters(object):
 
         
         A_modified.velocity, B_modified.velocity, dt = \
-                self.get_velocity_after_encounter(A,B,return_timestep = True)
+                self.get_velocity_after_encounter(
+                        A_modified,
+                        B_modified,
+                        return_timestep = True,
+                        )
         #A.velocity, B.velocity = \
 
         if correct_for_multiple_collisions:
