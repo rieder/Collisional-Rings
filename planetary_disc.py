@@ -69,30 +69,32 @@ class Resolve_Encounters(object):
             time            = 0.0 | units.yr,
             timestep        = 1.0 | units.hour,
             ):
-        first_is_most_massive = (
-                encounters_0.mass ==
-                encounters_0.mass.maximum(
-                    encounters_1.mass
-                    )
-                )
-        encounters_A   = Particles()
-        encounters_B   = Particles()
-        encounters_A.add_particles(
-                encounters_0[np.where(first_is_most_massive==True)[0]]
-                )
-        encounters_A.add_particles(
-                encounters_1[np.where(first_is_most_massive==False)[0]]
-                )
-        encounters_B.add_particles(
-                encounters_1[np.where(first_is_most_massive==True)[0]]
-                )
-        encounters_B.add_particles(
-                encounters_0[np.where(first_is_most_massive==False)[0]]
-                )
+        #first_is_most_massive = (
+        #        encounters_0.mass ==
+        #        encounters_0.mass.maximum(
+        #            encounters_1.mass
+        #            )
+        #        )
+        #encounters_A   = Particles()
+        #encounters_B   = Particles()
+        #encounters_A.add_particles(
+        #        encounters_0[np.where(first_is_most_massive==True)[0]]
+        #        )
+        #encounters_A.add_particles(
+        #        encounters_1[np.where(first_is_most_massive==False)[0]]
+        #        )
+        #encounters_B.add_particles(
+        #        encounters_1[np.where(first_is_most_massive==True)[0]]
+        #        )
+        #encounters_B.add_particles(
+        #        encounters_0[np.where(first_is_most_massive==False)[0]]
+        #        )
 
-        order_by_mass = encounters_A.mass.argsort()
-        self.all_encounters_A = encounters_A[order_by_mass]
-        self.all_encounters_B = encounters_B[order_by_mass]
+        #order_by_mass = encounters_A.mass.argsort()
+        #self.all_encounters_A = encounters_A[order_by_mass]
+        #self.all_encounters_B = encounters_B[order_by_mass]
+        self.all_encounters_A = encounters_0
+        self.all_encounters_B = encounters_1
 
         self.primary            = primary
 
@@ -109,7 +111,9 @@ class Resolve_Encounters(object):
 
         #self.get_constants()
         #self.get_velocity_after_encounter()
-        #self.get_jacobi_energy()
+        self.velocity_change_after_encounter()
+        self.get_hill_radius()
+        self.get_jacobi_energy()
         self.get_encounter_type()
 
         # Resolve. 
@@ -121,7 +125,29 @@ class Resolve_Encounters(object):
         if len(self.merging) > 0:
             self.resolve_mergers()
 
-    def get_velocity_after_encounter(
+    def velocity_change_after_encounter(
+            self,
+            ):
+        A = self.all_encounters_A
+        B = self.all_encounters_B
+
+        if self.epsilon_t != 1.0:
+            return -1
+        r = B.position - A.position
+        v = B.velocity - A.velocity
+        n = r/r.lengths().reshape((len(r),1))
+
+        v_n = (
+                v[:,0]*n[:,0] +
+                v[:,1]*n[:,1] +
+                v[:,2]*n[:,2]
+                ).reshape((len(n),1)) * n
+
+        self.d_v_A =  (1+self.epsilon_n) * v_n * (B.mass / (A.mass+B.mass)).reshape((len(B),1))
+        self.d_v_B = -(1+self.epsilon_n) * v_n * (A.mass / (A.mass+B.mass)).reshape((len(A),1))
+
+
+    def _get_velocity_after_encounter(
             self,
             A,
             B,
@@ -173,13 +199,13 @@ class Resolve_Encounters(object):
 
     def get_jacobi_energy(
             self,
-            A,
-            B,
             ):
         """
         Taken from Canup & Esposito (1995/1994), with cues from Kokubo, Ida &
         Makino (2000)
         """
+        A = self.all_encounters_A
+        B = self.all_encounters_B
 
         # Constants
         m_A = A.mass
@@ -194,8 +220,8 @@ class Resolve_Encounters(object):
         r_p = self.primary.position
         r_orb   = r - r_p
 
-        v_A = A.velocity
-        v_B = B.velocity
+        v_A = A.velocity + self.d_v_A
+        v_B = B.velocity + self.d_v_B
         v_c = (
                 v_A * m_A.reshape((len(m_A),1)) +
                 v_B * m_B.reshape((len(m_B),1))
@@ -205,8 +231,6 @@ class Resolve_Encounters(object):
         v_orb   = (v_c - v_p)
 
         # Derived
-        radius_Hill = self.get_hill_radius(A,B)
-
         x_hat   = VectorQuantity(
                 (
                     r_orb / 
@@ -241,25 +265,28 @@ class Resolve_Encounters(object):
                 v_orb[:,2] * y_hat[:,2]
                 ) / (2*np.pi * r_orb.lengths())
 
-        v_A_prime, v_B_prime = self.get_velocity_after_encounter(A,B)
-        v_d_prime = v_A_prime - v_B_prime
+        #v_A_prime, v_B_prime = self.get_velocity_after_encounter(A,B)
+        #v_A_prime = v_A + self.d_v_A
+        #v_B_prime = v_B + self.d_v_B
+        #v_B_prime = self.get_velocity_after_encounter(A,B)
+        #v_d_prime = v_A_prime - v_B_prime
 
         # Remember this is a potential, not really an energy
         # But since mass is always > 0, no problem.
-        E_J = ( 
-                0.5 * v_d_prime.lengths_squared() - 
+        self.E_J = ( 
+                0.5 * v_d.lengths_squared() - 
                 1.5 * x**2 * Omega**2 + 
                 0.5 * z**2 * Omega**2 - 
                 self.G*M/r.lengths() +
-                4.5 * radius_Hill**2 * Omega**2
+                4.5 * self.radius_Hill**2 * Omega**2
                 )
-        return E_J
 
     def get_hill_radius(
             self,
-            A,
-            B,
             ):
+        A = self.all_encounters_A
+        B = self.all_encounters_B
+
         m_A = A.mass
         m_B = B.mass
         M   = m_A + m_B
@@ -272,11 +299,10 @@ class Resolve_Encounters(object):
         r_p = self.primary.position
         r_orb   = r - r_p
         
-        radius_Hill = (
+        self.radius_Hill = (
                 M / 
                 (3 * self.primary.mass)
                 )**(1./3) * r_orb.lengths()
-        return radius_Hill
         
 
     def get_encounter_type(
@@ -308,16 +334,12 @@ class Resolve_Encounters(object):
         #        dz * dvz
         #        )
 
-        E_J = self.get_jacobi_energy(A,B)
-
         jacobi_energy_negative = (
-                E_J < (0 | energy_unit / mass_unit)
+                self.E_J < (0 | energy_unit / mass_unit)
                 )
 
-        radius_Hill = self.get_hill_radius(A,B)
-
         within_hill_radius = (
-                (A.radius + B.radius) < (self.f * radius_Hill)
+                (A.radius + B.radius) < (self.f * self.radius_Hill)
                 )
 
         merging  = (
@@ -345,49 +367,47 @@ class Resolve_Encounters(object):
         A_modified = A_original.copy()
         B_modified = B_original.copy()
 
-        # Find all particles that are in this list more than once
+        A_modified.velocity += self.d_v_A[self.not_merging]
+        B_modified.velocity += self.d_v_B[self.not_merging]
 
-        allkeys = np.unique(np.append(A_modified.key,B_modified.key))
-        bins = allkeys.searchsorted(
-                np.append(A_modified.key,B_modified.key)
-                )
-        keys_appearing_more_than_once = allkeys[
-                np.where(np.bincount(bins) > 1)
-                ]
+        ## Find all particles that are in this list more than once
 
-        pairs_appearing_more_than_once = np.array([])
-        print "Pairs with particles in more than one collision: %i"%len(pairs_appearing_more_than_once)
-        for key in keys_appearing_more_than_once:
-            pairs_appearing_more_than_once = np.append(
-                    pairs_appearing_more_than_once,
-                    np.where(A_modified.key == key),
-                    )
-            pairs_appearing_more_than_once = np.append(
-                    pairs_appearing_more_than_once,
-                    np.where(B_modified.key == key),
-                    )
-        pairs_appearing_more_than_once = np.uint64(np.unique(
-                pairs_appearing_more_than_once,
-                ))
+        #allkeys = np.unique(np.append(A_modified.key,B_modified.key))
+        #bins = allkeys.searchsorted(
+        #        np.append(A_modified.key,B_modified.key)
+        #        )
+        #keys_appearing_more_than_once = allkeys[
+        #        np.where(np.bincount(bins) > 1)
+        #        ]
 
-        
-        A_modified.velocity, B_modified.velocity = \
-                self.get_velocity_after_encounter(
-                        A_modified,
-                        B_modified,
-                        )
-        #A.velocity, B.velocity = \
+        #pairs_appearing_more_than_once = np.array([])
+        #print "Pairs with particles in more than one collision: %i"%len(pairs_appearing_more_than_once)
+        #for key in keys_appearing_more_than_once:
+        #    pairs_appearing_more_than_once = np.append(
+        #            pairs_appearing_more_than_once,
+        #            np.where(A_modified.key == key),
+        #            )
+        #    pairs_appearing_more_than_once = np.append(
+        #            pairs_appearing_more_than_once,
+        #            np.where(B_modified.key == key),
+        #            )
+        #pairs_appearing_more_than_once = np.uint64(np.unique(
+        #        pairs_appearing_more_than_once,
+        #        ))
 
-        if correct_for_multiple_collisions:
-            for i in pairs_appearing_more_than_once:
-                A_i = A_modified[i:i+1] # This makes it a particle set instead of a particle
-                B_i = B_modified[i:i+1]
-                A_i.velocity, B_i.velocity = \
-                        self.get_velocity_after_encounter(A_i, B_i)
-                d_A = A_modified.select(lambda k: k == A_modified[i].key,["key"])
-                d_A.velocity = A_modified[i].velocity
-                d_B = B_modified.select(lambda k: k == B_modified[i].key,["key"])
-                d_B.velocity = B_modified[i].velocity
+        #
+
+
+        #if correct_for_multiple_collisions:
+        #    for i in pairs_appearing_more_than_once:
+        #        A_i = A_modified[i:i+1] # This makes it a particle set instead of a particle
+        #        B_i = B_modified[i:i+1]
+        #        A_i.velocity, B_i.velocity = \
+        #                self.get_velocity_after_encounter(A_i, B_i)
+        #        d_A = A_modified.select(lambda k: k == A_modified[i].key,["key"])
+        #        d_A.velocity = A_modified[i].velocity
+        #        d_B = B_modified.select(lambda k: k == B_modified[i].key,["key"])
+        #        d_B.velocity = B_modified[i].velocity
 
         if move_particles:
             # Try to make sure the radii no longer overlap
@@ -448,8 +468,19 @@ class Resolve_Encounters(object):
 
         for i in range(len(self.merging)):
             index       = self.merging[i]
-            seed        = A[index]
-            merge_with  = B[index]
+            if B[index].mass > A[index].mass:
+                seed        = B[index]
+                merge_with  = A[index]
+            else:
+                seed        = A[index]
+                merge_with  = B[index]
+            dist = (seed.position-merge_with.position).lengths()
+            print "MERGER: p1 %s %s %s p2 %s %s %s EJ %s RH %s dist %s"%(
+                    seed.key, seed.mass, seed.radius,
+                    merge_with.key, merge_with.mass, merge_with.radius,
+                    self.E_J[index], self.radius_Hill[index],
+                    dist
+                    )
 
             if merge_with.key in self.particles_removed.key:
                 print "already merged!"
@@ -555,11 +586,11 @@ class Planetary_Disc(object):
                 if (
                         np.abs((m_after - m_before).value_in(units.MEarth)) > 
                         self.converter.to_si(
-                            (1e-15|nbody_system.mass)
+                            (1e-10|nbody_system.mass)
                             ).value_in(units.MEarth)
                         ):
                     print "Mass changed!", (m_after - m_before).as_quantity_in(units.MEarth)
-                print "Handled %i encounters this timestep"%(number_of_encounters)
+                print "#Handled %i encounters this timestep"%(number_of_encounters)
 
     def define_subgroups(self):
         self.star       = self.particles.select(lambda x: x == "star", ["type"])
@@ -619,9 +650,9 @@ class Planetary_Disc(object):
 
 def main():
     options     = {}
-    options["rubblepile"]   = True
-    #options["integrator"]   = "whfast"
-    options["integrator"]   = "ias15"
+    options["rubblepile"]   = False
+    options["integrator"]   = "whfast"
+    #options["integrator"]   = "ias15"
 
     backupdir   = "./backup/"
     plotdir     = "./plots/"
@@ -744,7 +775,7 @@ def main():
             backup_time += backup_timestep
         if planetary_disc.model_time >= time:
             time += timestep
-            print "Now at time %s, evolving to %s (%i particles)"%(
+            print "#Now at time %s, evolving to %s (%i particles)"%(
                     gravity.model_time,time, 
                     len(gravity.particles),
                     )
