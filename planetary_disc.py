@@ -650,7 +650,9 @@ class Planetary_Disc(object):
 
 def main():
     options     = {}
-    options["rubblepile"]   = False#True
+    options["rubblepile"]   = False
+    options["integrator"]   = "whfast"
+    #options["integrator"]   = "ias15"
 
     backupdir   = "./backup/"
     plotdir     = "./plots/"
@@ -707,6 +709,8 @@ def main():
     if options["rubblepile"]:
         backupdir   += "-rubblepile"
         plotdir     += "-rubblepile"
+    backupdir += "-%s"%(options["integrator"])
+    plotdir += "-%s"%(options["integrator"])
     backupdir   += "/"
     plotdir     += "/"
     try:
@@ -723,7 +727,7 @@ def main():
 
     #gravity = Hermite(converter)
     #gravity = ph4(converter)
-    gravity = Rebound(converter)
+    gravity = Rebound(converter, redirecion="none")
 
     planetary_disc = Planetary_Disc(options)
     planetary_disc.add_integrator(gravity)
@@ -742,8 +746,9 @@ def main():
     timestep_k2000 = (kepler_time/(2*np.pi))*(2**-9)
     
     gravity.parameters.timestep     = timestep_k2000
-    gravity.parameters.integrator   = "whfast"
-    #print gravity.parameters
+    #gravity.parameters.integrator   = "whfast"
+    #gravity.parameters.integrator   = "hermes"
+    gravity.parameters.integrator   = options["integrator"]
     
     t_start         = time
     plot_time       = time
