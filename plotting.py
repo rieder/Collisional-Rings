@@ -110,6 +110,18 @@ def plot_system(
 
     fig.canvas.draw()
     #FIXME Plot Roche radius
+    roche = plt.Circle(
+            (
+                (x_axes[0][0]).value_in(length_unit),
+                (y_axes[0][0]).value_in(length_unit),
+                ),
+            2.9 * particles[0].radius.value_in(length_unit),
+            facecolor="none",
+            edgecolor="black",
+            alpha = 0.5,
+            )
+    axes[0].add_artist(roche)
+
     for i in range(len(axes)):
         ax = axes[i]
 
