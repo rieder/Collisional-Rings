@@ -1,5 +1,6 @@
 # coding: utf-8
-import os,sys
+import os,sys,shutil
+import time as clocktime
 
 import numpy as np
 
@@ -65,34 +66,9 @@ class Resolve_Encounters(object):
             G               = constants.G,
             epsilon_n       = 0.1,
             epsilon_t       = 1,
-            f               = 0.0,#1.0,
+            f               = 0.0,
             time            = 0.0 | units.yr,
-            timestep        = 1.0 | units.hour,
             ):
-        #first_is_most_massive = (
-        #        encounters_0.mass ==
-        #        encounters_0.mass.maximum(
-        #            encounters_1.mass
-        #            )
-        #        )
-        #encounters_A   = Particles()
-        #encounters_B   = Particles()
-        #encounters_A.add_particles(
-        #        encounters_0[np.where(first_is_most_massive==True)[0]]
-        #        )
-        #encounters_A.add_particles(
-        #        encounters_1[np.where(first_is_most_massive==False)[0]]
-        #        )
-        #encounters_B.add_particles(
-        #        encounters_1[np.where(first_is_most_massive==True)[0]]
-        #        )
-        #encounters_B.add_particles(
-        #        encounters_0[np.where(first_is_most_massive==False)[0]]
-        #        )
-
-        #order_by_mass = encounters_A.mass.argsort()
-        #self.all_encounters_A = encounters_A[order_by_mass]
-        #self.all_encounters_B = encounters_B[order_by_mass]
         self.all_encounters_A = encounters_0
         self.all_encounters_B = encounters_1
 
@@ -106,11 +82,7 @@ class Resolve_Encounters(object):
         self.G          = G
         self.f          = f
         self.time       = time
-        #TODO: use timestep to determine length of velocity vectors
-        self.timestep   = timestep 
 
-        #self.get_constants()
-        #self.get_velocity_after_encounter()
         self.velocity_change_after_encounter()
         self.get_hill_radius()
         self.get_jacobi_energy()
@@ -146,57 +118,6 @@ class Resolve_Encounters(object):
         self.d_v_A =  (1+self.epsilon_n) * v_n * (B.mass / (A.mass+B.mass)).reshape((len(B),1))
         self.d_v_B = -(1+self.epsilon_n) * v_n * (A.mass / (A.mass+B.mass)).reshape((len(A),1))
 
-
-    def _get_velocity_after_encounter(
-            self,
-            A,
-            B,
-            ):
-        epsilon_n   = self.epsilon_n
-        epsilon_t   = self.epsilon_t
-
-        # Constants
-        m_A = A.mass
-        m_B = B.mass
-        M   = m_A + m_B
-        mu  = m_A * m_B / M
-        r   = B.position - A.position # Distance between particle centres
-        v_A = A.velocity
-        v_B = B.velocity
-        v   = v_B - v_A
-        R_A = A.radius
-        R_B = B.radius
-
-        # Simplified case for spheres
-        #alpha   = 5./2. * mu**-1 
-        beta    = 2./7.#1/(1+alpha*mu)
-
-        n_hat   = VectorQuantity(
-                (
-                    r / 
-                    r.lengths().reshape((len(r),1))
-                    ),
-                units.none,
-                )
-        # Ignoring spin for now
-        #sigma   = 
-        u       = v# + sigma
-        u_n     = (
-                u[:,0] * n_hat[:,0] +
-                u[:,1] * n_hat[:,1] +
-                u[:,2] * n_hat[:,2]
-                ).reshape((len(n_hat),1)) * n_hat
-        u_t     = u - u_n
-
-        u_n_prime   = (1+epsilon_n) * u_n
-        u_t_prime   = beta * (1-epsilon_t) * u_t
-        u_prime     = u_t_prime + u_n_prime
-
-        v_A_prime   = v_A + u_prime * (m_B/M).reshape((len(m_B),1))
-        v_B_prime   = v_B - u_prime * (m_A/M).reshape((len(m_A),1))
-
-        return v_A_prime, v_B_prime
-
     def get_jacobi_energy(
             self,
             ):
@@ -226,7 +147,7 @@ class Resolve_Encounters(object):
                 v_A * m_A.reshape((len(m_A),1)) +
                 v_B * m_B.reshape((len(m_B),1))
                 ) / M.reshape((len(M),1))
-        v_d = v_A - v_B
+        v_d = v_B - v_A
         v_p = self.primary.velocity
         v_orb   = (v_c - v_p)
 
@@ -320,19 +241,6 @@ class Resolve_Encounters(object):
                 (self.primary.key == A.key) ^
                 (self.primary.key == B.key)
                 )
-
-        dx  = A.x - B.x
-        dy  = A.y - B.y
-        dz  = A.z - B.z
-        dvx = A.vx - B.vx
-        dvy = A.vy - B.vy
-        dvz = A.vz - B.vz
-
-        #approaching = (0.| length_unit**2 * time_unit**-1) < (
-        #        dx * dvx +
-        #        dy * dvy +
-        #        dz * dvz
-        #        )
 
         jacobi_energy_negative = (
                 self.E_J < (0 | energy_unit / mass_unit)
@@ -475,7 +383,9 @@ class Resolve_Encounters(object):
                 seed        = A[index]
                 merge_with  = B[index]
             dist = (seed.position-merge_with.position).lengths()
-            print "MERGER: p1 %s %s %s p2 %s %s %s EJ %s RH %s dist %s"%(
+            print "MERGER: %s dtp %s p1 %s %s %s p2 %s %s %s EJ %s RH %s dist %s"%(
+                    self.time,
+                    (seed.position-self.primary.position).length(),
                     seed.key, seed.mass, seed.radius,
                     merge_with.key, merge_with.mass, merge_with.radius,
                     self.E_J[index], self.radius_Hill[index],
@@ -648,22 +558,17 @@ class Planetary_Disc(object):
 
         #plot_system(self.particles, "latest.png")
 
-def main():
-    options     = {}
-    options["rubblepile"]   = False
-    options["integrator"]   = "whfast"
-    #options["integrator"]   = "ias15"
+def main(options):
+    now = clocktime.strftime("%Y%m%d%H%M%S")
 
-    backupdir   = "./backup/"
-    plotdir     = "./plots/"
     # Read the initial conditions file provided. This uses "Giant Impact" units.
     
-    mass_unit   = 1|units.MEarth
-    length_unit = get_roche_limit_radius(3.3|units.g * units.cm**-3)
+    mass_unit   = options["unit_mass"]
+    length_unit = options["unit_length"]
     converter   = nbody_system.nbody_to_si(mass_unit, length_unit)
     options["converter"] = converter
 
-    time = 0|units.yr
+    time        = options["time_start"]
     if len(sys.argv) >= 2:
         filename = sys.argv[1]
         ext = filename.split('.')[-1]
@@ -692,12 +597,10 @@ def main():
             
             particles[0].type   = "planet"
             particles[1:].type  = "disc"
-            backupdir += filename.split('/')[-1][:-4] 
-            plotdir   += filename.split('/')[-1][:-4] 
+            rundir = "./" + filename.split('/')[-1][:-4] 
         elif ext == "hdf5":
             particles = read_set_from_file(filename, "amuse")
-            backupdir += filename.split('/')[-1][:-5] 
-            plotdir   += filename.split('/')[-1][:-5] 
+            rundir = "./" + filename.split('/')[-1][:-5] 
         else:
             print "Unknown filetype"
             exit()
@@ -706,34 +609,30 @@ def main():
         particles = initial_particles(10000)
         write_set_to_file(particles,"this_run.hdf5","amuse",)
 
+    
+    rundir += "-%s-%s"%(
+            now,
+            options["gravity"],
+            )
     if options["rubblepile"]:
-        backupdir   += "-rubblepile"
-        plotdir     += "-rubblepile"
-    backupdir += "-%s"%(options["integrator"])
-    plotdir += "-%s"%(options["integrator"])
-    backupdir   += "/"
-    plotdir     += "/"
+        rundir   += "-rubblepile"
+
+    backupdir   = rundir + "/backups"
+    plotdir     = rundir + "/plots"
+
     try:
+        os.makedirs(rundir)
         os.makedirs(backupdir)
         os.makedirs(plotdir)
+        shutil.copy(sys.argv[0],rundir)
     except:
         #FIXME make a new dir in this case, to prevent overwriting old files
         # use a datetime stamp
-        print "#plotdir and/or backupdir already present"
+        print "#directories already present"
         exit()
 
     particles[0].colour = "blue"
     particles[1:].colour = "black"
-
-    #gravity = Hermite(converter)
-    #gravity = ph4(converter)
-    gravity = Rebound(converter, redirecion="none")
-
-    planetary_disc = Planetary_Disc(options)
-    planetary_disc.add_integrator(gravity)
-    planetary_disc.add_particles(particles)
-
-    # Start up gravity code (Rebound) and simulate for a few Kepler times
     
     kepler_time = converter.to_si(
             2 * np.pi * 
@@ -745,18 +644,34 @@ def main():
 
     timestep_k2000 = (kepler_time/(2*np.pi))*(2**-9)
     
-    gravity.parameters.timestep     = timestep_k2000
-    #gravity.parameters.integrator   = "whfast"
-    #gravity.parameters.integrator   = "hermes"
-    gravity.parameters.integrator   = options["integrator"]
-    
+    # Start up gravity code 
+    if options["gravity"] == "Rebound":
+        gravity = Rebound(converter)
+        gravity.parameters.timestep     = timestep_k2000
+        gravity.parameters.integrator   = options["integrator"]
+        gravity.parameters.epsilon_squared  = converter.to_si((1.e-4|nbody_system.length)**2)
+    elif options["gravity"] == "ph4":
+        if options["use_gpu"]:
+            gravity = ph4(converter, mode="gpu")
+        else:
+            gravity = ph4(converter)
+    elif options["gravity"] == "Hermite":
+        gravity = Hermite(converter)
+    else:
+        print "Unknown gravity code"
+        exit()
+
+    planetary_disc = Planetary_Disc(options)
+    planetary_disc.add_integrator(gravity)
+    planetary_disc.add_particles(particles)
+
     t_start         = time
     plot_time       = time
     backup_time     = time
-    timestep        = 1.0 |units.minute 
-    plot_timestep   = 1.0 |units.minute
-    backup_timestep = 10. |units.minute
-    t_end           = 10000. |units.hour 
+    timestep        = options["timestep"]
+    plot_timestep   = options["timestep_plot"]
+    backup_timestep = options["timestep_backup"]
+    t_end           = options["time_end"]
     
     backup = 0
     plot = 0
@@ -785,4 +700,18 @@ def main():
     gravity.stop()
 
 if __name__ == "__main__":
-    main()
+    options     = {}
+    options["rubblepile"]       = True
+    options["gravity"]          = "Rebound"
+    #options["gravity"]          = "ph4"
+    options["integrator"]       = "whfast"
+    #options["integrator"]       = "ias15"
+    options["use_gpu"]          = True
+    options["time_start"]       = 0. | units.yr
+    options["time_end"]         = 10000. |units.hour 
+    options["timestep"]         = 1. |units.minute 
+    options["timestep_plot"]    = 1. |units.minute 
+    options["timestep_backup"]  = 10. |units.minute 
+    options["unit_mass"]        = 1. |units.MEarth
+    options["unit_length"]      = get_roche_limit_radius(3.3|units.g * units.cm**-3)
+    main(options)
