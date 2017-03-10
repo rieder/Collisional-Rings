@@ -614,10 +614,10 @@ def main(options):
             
             particles[0].type   = "planet"
             particles[1:].type  = "disc"
-            rundir = "./" + filename.split('/')[-1][:-4] 
+            rundir = "./runs/" + filename.split('/')[-1][:-4] 
         elif ext == "hdf5":
             particles = read_set_from_file(filename, "amuse")
-            rundir = "./" + filename.split('/')[-1][:-5] 
+            rundir = "./runs/" + filename.split('/')[-1][:-5] 
         else:
             print "Unknown filetype"
             exit()
