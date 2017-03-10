@@ -482,8 +482,8 @@ class Planetary_Disc(object):
         write_set_to_file(self.particles,filename,"amuse")
 
     def evolve_model(self,time):
-        while self.model_time < time - self.time_margin:
-            self.integrator.evolve_model(time)
+        while self.model_time < time:
+            self.integrator.evolve_model(time + self.time_margin)
 
             # Detect an error, save data in that case
             if self.integrator.particles[0].x.number == np.nan:
@@ -708,7 +708,7 @@ def main(options):
     t_start         = time
     plot_time       = time
     backup_time     = time
-    timestep        = options["timestep"]
+    timestep        = timestep_k2000#options["timestep"]
     plot_timestep   = options["timestep_plot"]
     backup_timestep = options["timestep_backup"]
     t_end           = options["time_end"]
