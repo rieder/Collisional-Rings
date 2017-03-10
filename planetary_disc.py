@@ -461,6 +461,7 @@ class Planetary_Disc(object):
         self.particles.collection_attributes.nbody_length   = self.converter.to_si(1|nbody_system.length)
         self.particles.collection_attributes.nbody_mass     = self.converter.to_si(1|nbody_system.mass)
 
+        self.time_margin	= 0 | self.time_unit
         self.model_time         = 0 | self.time_unit
         self.kinetic_energy     = 0 | self.energy_unit
         self.potential_energy   = 0 | self.energy_unit
@@ -481,7 +482,7 @@ class Planetary_Disc(object):
         write_set_to_file(self.particles,filename,"amuse")
 
     def evolve_model(self,time):
-        while self.model_time < time:
+        while self.model_time < time - self.time_margin:
             self.integrator.evolve_model(time)
 
             # Detect an error, save data in that case
@@ -547,6 +548,11 @@ class Planetary_Disc(object):
     def add_integrator(self, integrator):
         self.integrator             = integrator
         self.collision_detection    = integrator.stopping_conditions.collision_detection
+        try:
+            self.integrator_timestep	= integrator.parameters.timestep
+            self.time_margin		= 0.5 * self.integrator_timestep
+        except:
+            self.integrator_timestep	= False
         if not options["disable_collisions"]:
             self.collision_detection.enable()
 
@@ -702,7 +708,7 @@ def main(options):
     t_start         = time
     plot_time       = time
     backup_time     = time
-    timestep        = timestep_k2000#options["timestep"]
+    timestep        = options["timestep"]
     plot_timestep   = options["timestep_plot"]
     backup_timestep = options["timestep_backup"]
     t_end           = options["time_end"]
