@@ -9,13 +9,64 @@ import numpy as np
 aR = named('Roche limit radius for lunar density', 'a_R',  2.9 * units.REarth)
 
 def plot_interaction(
-        a,
-        b,
-        figname="figure.png"
+        a, # particles before interaction
+        b, # particles after interaction
+        primary = False,
+        figname="figure.png",
         ):
+
+    # Find important axes:
+    # N = normal
+    # T = 90 deg from normal, pointing to primary
+
+    # Constants
+    A = a[0]
+    B = a[1]
+    m_A = A.mass
+    m_B = B.mass
+    M   = m_A + m_B
+    r_A = A.position
+    r_B = B.position
+    r   = (
+            r_A * m_A.reshape((len(m_A),1)) +
+            r_B * m_B.reshape((len(m_B),1))
+            ) / M.reshape((len(M),1))
+    r_p = self.primary.position
+    r_orb   = r - r_p
+
+    v_A = A.velocity + self.d_v_A
+    v_B = B.velocity + self.d_v_B
+    v_c = (
+            v_A * m_A.reshape((len(m_A),1)) +
+            v_B * m_B.reshape((len(m_B),1))
+            ) / M.reshape((len(M),1))
+    v_d = v_B - v_A
+    v_p = self.primary.velocity
+    v_orb   = (v_c - v_p)
+
+    # Derived
+    x_hat   = VectorQuantity(
+            (
+                r_orb / 
+                r_orb.lengths().reshape((len(r_orb),1))
+                ),
+            units.none,
+            )
+    v_orb_hat   = VectorQuantity(
+            (
+                v_orb / 
+                v_orb.lengths().reshape((len(v_orb),1))
+                ),
+            units.none,
+            )
+    z_hat       = x_hat.cross(v_orb_hat)
+    y_hat       = x_hat.cross(z_hat)
+
     c = [a,b]
     length_unit = units.REarth
     speed_unit = a.vx.unit
+    # Rotate particles to these coordinates
+
     
     fig = plt.figure(figsize=(11,6))
 
