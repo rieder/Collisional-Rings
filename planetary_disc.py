@@ -705,7 +705,9 @@ def main(options):
         gravity = Rebound(converter)
         gravity.parameters.timestep     = timestep_k2000
         gravity.parameters.integrator   = options["integrator"]
-        gravity.parameters.epsilon_squared  = (1e-4 | nbody_system.length)**2
+        gravity.parameters.opening_angle2 = 0.5
+        gravity.parameters.solver = "compensated"
+        #gravity.parameters.epsilon_squared  = (1e-4 | nbody_system.length)**2
     elif options["gravity"] == "Bonsai":
         gravity = Bonsai(converter)
         gravity.parameters.timestep     = timestep_k2000
