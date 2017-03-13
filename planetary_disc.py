@@ -482,13 +482,28 @@ class Planetary_Disc(object):
         write_set_to_file(self.particles,filename,"amuse")
 
     def evolve_model(self,time):
-        while self.model_time < time:
-            self.integrator.evolve_model(time + self.time_margin)
+        if options["verbose"]>0:
+            print "#Evolving to %s"%(time/self.integrator.parameters.timestep)
+        if time > self.model_time:
+            if options["verbose"]>0:
+                print "#%s > %s, evolving..."%(
+                        time/self.integrator.parameters.timestep, 
+                        self.model_time/self.integrator.parameters.timestep,
+                        )
+        #print time/self.integrator.parameters.timestep, self.model_time/self.integrator.parameters.timestep
+        #while (time - self.model_time) > 1e-10|units.s:#self.model_time < time:
+            t_before = self.integrator.model_time
+            self.integrator.evolve_model(time + 0.0001*self.integrator.parameters.timestep)
+            t_after = self.integrator.model_time
+            if options["verbose"]>0:
+                print "#integrator now at %s"%(self.integrator.model_time/self.integrator.parameters.timestep)
 
             # Detect an error, save data in that case
             if self.integrator.particles[0].x.number == np.nan:
                 self.exit_graceful()
             else:
+                if options["verbose"]>0:
+                    print "#Updating model"
                 self.from_integrator_to_particles.copy()
                 self.model_time         = self.integrator.model_time
                 self.kinetic_energy     = self.integrator.kinetic_energy
@@ -496,6 +511,8 @@ class Planetary_Disc(object):
                 self.disc_angular_momentum  = self.disc.total_angular_momentum()
 
             if self.collision_detection.is_set():
+                if options["verbose"]>0:
+                    print "#Handling collisions"
                 #if len(self.collision_detection.particles(0)) > 0:
                 if (
                         self.options["gravity"]=="Rebound" or
@@ -509,15 +526,17 @@ class Planetary_Disc(object):
                 self.resolve_encounters()
                 m_after = self.integrator.particles.mass.sum()
 
-                if (
-                        np.abs((m_after - m_before).value_in(units.MEarth)) > 
-                        self.converter.to_si(
-                            (1e-10|nbody_system.mass)
-                            ).value_in(units.MEarth)
-                        ):
-                    print "#Mass changed!", (m_after - m_before).as_quantity_in(units.MEarth)
+                #if (
+                #        np.abs((m_after - m_before).value_in(units.MEarth)) > 
+                #        self.converter.to_si(
+                #            (1e-10|nbody_system.mass)
+                #            ).value_in(units.MEarth)
+                #        ):
+                #    print "#Mass changed!", (m_after - m_before).as_quantity_in(units.MEarth)
                 if self.options["verbose"]>0:
                     print "#Handled %i encounters this timestep"%(number_of_encounters)
+            if options["verbose"]>0:
+                print "#Done"
 
     def define_subgroups(self):
         self.star       = self.particles.select(lambda x: x == "star", ["type"])
@@ -541,6 +560,12 @@ class Planetary_Disc(object):
         self.define_subgroups()
         
     def remove_particles(self, particles):
+        if options["verbose"]>0:
+            print "#Removing %i particles"%(len(particles))
+        #from_encounter_to_particles = \
+        #        particles.new_channel_to(self.particles)
+        #from_encounter_to_particles.copy_attributes(self.sync_attributes)
+        #self.from_particles_to_integrator.copy_attributes(self.sync_attributes)
         self.particles.remove_particles(particles)
         self.integrator.particles.remove_particles(particles)
         self.define_subgroups()
@@ -700,6 +725,7 @@ def main(options):
     else:
         print "Unknown gravity code"
         exit()
+    print gravity.parameters
 
     planetary_disc = Planetary_Disc(options)
     planetary_disc.add_integrator(gravity)
@@ -716,7 +742,7 @@ def main(options):
     backup = 0
     plot = 0
     
-    log_time                = VectorQuantity([],units.yr)
+    log_time                = VectorQuantity([],units.s)
     log_kinetic_energy      = VectorQuantity([],units.erg)
     log_potential_energy    = VectorQuantity([],units.erg)
     log_angular_momentum    = VectorQuantity([],units.AU**2 * units.MEarth * units.yr**-1)
@@ -752,7 +778,12 @@ def main(options):
             planetary_disc.write_backup(filename="%s/savefile-%i.hdf5"%(backupdir,backup))
             backup += 1
             backup_time += backup_timestep
-        if planetary_disc.model_time >= time:
+        if (time - planetary_disc.model_time) <= 0.5 * timestep:
+            if options["verbose"]>0:
+                print "#Increasing timestep: %s - %s <= 0.5"%(
+                        planetary_disc.model_time / planetary_disc.integrator.parameters.timestep, 
+                        time / planetary_disc.integrator.parameters.timestep,
+                        )
             time += timestep
             #log_time.append(planetary_disc.model_time)
             #log_kinetic_energy.append(planetary_disc.kinetic_energy)
@@ -783,6 +814,12 @@ def main(options):
                     )
                     )
             log.flush()
+        else:
+            if options["verbose"]>0:
+                print "#Not increasing timestep: %s - %s > 0.5"%(
+                        planetary_disc.model_time / planetary_disc.integrator.parameters.timestep, 
+                        time / planetary_disc.integrator.parameters.timestep,
+                        )
         planetary_disc.evolve_model(time)
 
     gravity.stop()
@@ -793,9 +830,7 @@ if __name__ == "__main__":
     options["verbose"]          = 0
     options["rubblepile"]       = True
     options["gravity"]          = "Rebound"
-    #options["gravity"]          = "ph4"
     options["integrator"]       = "whfast"
-    #options["integrator"]       = "ias15"
     options["use_gpu"]          = False
     options["time_start"]       = 0. | units.yr
     options["time_end"]         = 10000. |units.hour 
