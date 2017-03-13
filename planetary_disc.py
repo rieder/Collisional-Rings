@@ -99,8 +99,8 @@ class Resolve_Encounters(object):
         # NOTE: need to take ongoing changes into account...
         # First: collisions that don't result in a merger
         # Then: mergers
-        #if len(self.merging) > 0:
-        #    self.resolve_mergers()
+        if len(self.merging) > 0:
+            self.resolve_mergers()
 
     def update_velocities(
             self,
@@ -122,8 +122,8 @@ class Resolve_Encounters(object):
 
         self.v_A_orig = A.velocity
         self.v_B_orig = B.velocity
-        self.A.velocity += (1+self.epsilon_n) * v_n * (B.mass / (A.mass+B.mass)).reshape((self.number_of_collisions,1))
-        self.B.velocity += -(1+self.epsilon_n) * v_n * (A.mass / (A.mass+B.mass)).reshape((self.number_of_collisions,1))
+        A.velocity += (1+self.epsilon_n) * v_n * (B.mass / (A.mass+B.mass)).reshape((self.number_of_collisions,1))
+        B.velocity += -(1+self.epsilon_n) * v_n * (A.mass / (A.mass+B.mass)).reshape((self.number_of_collisions,1))
 
     def get_jacobi_energy(
             self,
@@ -480,9 +480,10 @@ class Planetary_Disc(object):
         self.disc       = self.particles.select(lambda x: x == "disc", ["type"])
 
     def add_particle(self, particle):
-        self.particles.add_particle(particle)
-        self.integrator.particles.add_particle(particle)
-        self.define_subgroups()
+        self.add_particles(particle.as_set())
+        #self.particles.add_particle(particle)
+        #self.integrator.particles.add_particle(particle)
+        #self.define_subgroups()
 
     def add_particles(self, particles):
         self.particles.add_particles(particles)
@@ -490,9 +491,10 @@ class Planetary_Disc(object):
         self.define_subgroups()
 
     def remove_particle(self, particle):
-        self.particles.remove_particle(particle)
-        self.integrator.particles.remove_particle(particle)
-        self.define_subgroups()
+        self.remove_particles(particle.as_set())
+        #self.particles.remove_particle(particle)
+        #self.integrator.particles.remove_particle(particle)
+        #self.define_subgroups()
         
     def remove_particles(self, particles):
         if options["verbose"]>0:
