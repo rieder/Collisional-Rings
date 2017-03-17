@@ -1,7 +1,7 @@
 #! /bin/bash
 
 # Download and extract AMUSEa
-export GITHASH=0571e33c01fc380e9c614b19c0fa16aaa7696ea0
+export GITHASH=4dccd5460fc37f0663307250ac3073ac91b49331
 wget https://github.com/rieder/amuse/archive/${GITHASH}.zip && \
   unzip ${GITHASH}.zip && \
   mv amuse-${GITHASH} amuse && \
