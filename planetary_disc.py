@@ -17,7 +17,7 @@ from plotting import plot_interaction, plot_system
 
 from amuse.units.units import named
 
-import collections
+from amuse.ext.orbital_elements import orbital_elements_for_rel_posvel_arrays
 
 try:
     from amuse.units import units
@@ -89,10 +89,11 @@ class Resolve_Encounters(object):
         # Should resolve collision immediately since the in-between state is unphysical
         # and may cause mergers within Roche radius
         self.resolve_rebounders()
-
-        # These are used to determine if a merger will take place
-        self.get_hill_radius()
-        self.get_jacobi_energy()
+        
+        if self.f > 0.0:
+            # These are used to determine if a merger will take place
+            self.get_hill_radius()
+            self.get_jacobi_energy()
         self.get_encounter_type()
 
         # Resolve. 
@@ -242,27 +243,30 @@ class Resolve_Encounters(object):
                 (self.primary.key == A.key) ^
                 (self.primary.key == B.key)
                 )
-
-        jacobi_energy_negative = (
-                self.E_J < (0 | energy_unit / mass_unit)
-                )
-
-        within_hill_radius = (
-                (A.radius + B.radius) < (self.f * self.radius_Hill)
-                )
-
-        merging  = (
-                interaction_includes_planet ^
-                (
-                    jacobi_energy_negative &
-                    within_hill_radius
+        if self.f > 0.0:
+            jacobi_energy_negative = (
+                    self.E_J < (0 | energy_unit / mass_unit)
                     )
-                )
+    
+            within_hill_radius = (
+                    (A.radius + B.radius) < (self.f * self.radius_Hill)
+                    )
+
+            merging  = (
+                    interaction_includes_planet ^
+                    (
+                        jacobi_energy_negative &
+                        within_hill_radius
+                        )
+                    )
+        else:
+            merging = interaction_includes_planet
+
         not_merging = (merging == False)
 
-        self.merging = np.where(merging)[0]
-        self.not_merging = np.where(not_merging)[0]
-        self.colliding = np.where(not_merging)[0]
+        self.merging        = np.where(merging)[0]
+        self.not_merging    = np.where(not_merging)[0]
+        self.colliding      = self.not_merging#np.where(not_merging)[0]
         #self.colliding  = np.where(not_merging & approaching)[0]
 
     def resolve_rebounders(
@@ -427,9 +431,7 @@ class Planetary_Disc(object):
                         )
         #print time/self.integrator.parameters.timestep, self.model_time/self.integrator.parameters.timestep
         #while (time - self.model_time) > 1e-10|units.s:#self.model_time < time:
-            t_before = self.integrator.model_time
             self.integrator.evolve_model(time + 0.0001*self.integrator.parameters.timestep)
-            t_after = self.integrator.model_time
             if options["verbose"]>0:
                 print "#integrator now at %s"%(self.integrator.model_time/self.integrator.parameters.timestep)
 
@@ -440,15 +442,17 @@ class Planetary_Disc(object):
                 if options["verbose"]>0:
                     print "#Updating model"
                 self.from_integrator_to_particles.copy()
-                self.model_time         = self.integrator.model_time
-                self.kinetic_energy     = self.integrator.kinetic_energy
-                self.potential_energy   = self.integrator.potential_energy
+                self.model_time             = self.integrator.model_time
+                self.kinetic_energy         = self.integrator.kinetic_energy
+                self.potential_energy       = self.integrator.potential_energy
                 self.disc_angular_momentum  = self.disc.total_angular_momentum()
 
             if self.collision_detection.is_set():
                 if options["verbose"]>0:
-                    print "#Handling collisions"
-                #if len(self.collision_detection.particles(0)) > 0:
+                    print "#Handling collisions (%i with %i)"%(
+                        len(self.collision_detection.particles(0)),
+                        len(self.collision_detection.particles(1)),
+                        )
                 if (
                         self.options["gravity"]=="Rebound" or
                         self.options["gravity"]=="Bonsai"
@@ -457,9 +461,9 @@ class Planetary_Disc(object):
                         print "#Timesteps completed: %s"%(self.integrator.model_time / self.integrator.parameters.timestep)
                 number_of_encounters = len(self.collision_detection.particles(0))
 
-                m_before = self.integrator.particles.mass.sum()
+                #m_before = self.integrator.particles.mass.sum()
                 self.resolve_encounters()
-                m_after = self.integrator.particles.mass.sum()
+                #m_after = self.integrator.particles.mass.sum()
 
                 #if (
                 #        np.abs((m_after - m_before).value_in(units.MEarth)) > 
@@ -642,9 +646,15 @@ def main(options):
         gravity = Rebound(converter)
         gravity.parameters.timestep     = timestep_k2000
         gravity.parameters.integrator   = options["integrator"]
-        gravity.parameters.opening_angle2 = 0.5
+        #gravity.parameters.integrator   = "leapfrog"
+        #gravity.parameters.opening_angle2 = 0.5
         gravity.parameters.solver = "compensated"
-        #gravity.parameters.epsilon_squared  = (1e-4 | nbody_system.length)**2
+        #gravity.parameters.solver = "tree"
+        #gravity.parameters.boundary = "open"
+        #gravity.parameters.boundary_size    = 10|units.AU
+        if options["whfast_corrector"]:
+            gravity.parameters.whfast_corrector = options["whfast_corrector"]
+        #gravity.parameters.epsilon_squared  = (1e-5 | nbody_system.length)**2
     elif options["gravity"] == "Bonsai":
         gravity = Bonsai(converter)
         gravity.parameters.timestep     = timestep_k2000
@@ -691,8 +701,8 @@ def main(options):
     log.write("#1 length = %s\n"%(converter_earthunits.to_si(1|nbody_system.length)))
     log.write("#1 mass   = %s\n"%(converter_earthunits.to_si(1|nbody_system.mass)))
     log.write("#1 energy = %s\n"%(converter_earthunits.to_si(1|nbody_system.energy)))
-    log.write("#Time N E_kin_G E_kin_A E_pot l2 l2_disc M_disc\n")
-    log.write("#%s n %s %s %s %s %s %s\n"%(
+    log.write("#Time N E_kin_G E_kin_A E_pot l2 l2_disc M_disc a_mean a_sigma e_mean e_sigma inc_mean inc_sigma\n")
+    log.write("#%s n %s %s %s %s %s %s %s %s\n"%(
         units.s,
         nbody_system.energy,#s.erg,
         nbody_system.energy,#s.erg,
@@ -700,6 +710,8 @@ def main(options):
         (units.REarth**2 * units.MEarth * units.day**-1)**2,
         (units.REarth**2 * units.MEarth * units.day**-1)**2,
         units.MEarth,
+        units.REarth,
+        units.REarth,
         )
         )
     log.flush()
@@ -732,8 +744,17 @@ def main(options):
             potential_energy = planetary_disc.potential_energy
             angular_momentum = planetary_disc.particles.total_angular_momentum()
             disc_angular_momentum = planetary_disc.disc.total_angular_momentum()
+            semimajor_axis, eccentricity, true_anomaly,inc, long_asc_node, arg_per_mat = orbital_elements_for_rel_posvel_arrays(
+                    planetary_disc.disc.position - planetary_disc.planet.position, 
+                    planetary_disc.disc.velocity - planetary_disc.planet.velocity, 
+                    planetary_disc.planet.mass,#total_masses, 
+                    G=constants.G,
+                    )
+            #FIXME kinetic energy per particle
+            #FIXME angular momentum per particle
+
             #print "Time %s N %i E_kin %s E_pot %s angmom %s %s %s"%(
-            log.write("%s %i %s %s %s %s %s %s\n"%(
+            log.write("%s %i %s %s %s %s %s %s %s %s %s %s %s %s\n"%(
                     planetary_disc.model_time.value_in(units.s), 
                     len(planetary_disc.particles),
                     converter_earthunits.to_nbody(kinetic_energy).value_in(nbody_system.energy),
@@ -750,6 +771,12 @@ def main(options):
                         disc_angular_momentum[2]**2
                         ).value_in(units.REarth**4 * units.MEarth**2 * units.day**-2),
                     planetary_disc.disc.mass.sum().value_in(units.MEarth),
+                    semimajor_axis.mean().value_in(units.REarth), 
+                    semimajor_axis.std().value_in(units.REarth),
+                    eccentricity.mean(), 
+                    eccentricity.std(),
+                    inc.mean(), 
+                    inc.std(),
                     )
                     )
             log.flush()
@@ -769,13 +796,14 @@ if __name__ == "__main__":
     options["verbose"]          = 0
     options["rubblepile"]       = True
     options["gravity"]          = "Rebound"
-    options["integrator"]       = "whfast"
+    options["integrator"]       = "whfast-helio"
+    options["whfast_corrector"] = 3
     options["use_gpu"]          = False
     options["time_start"]       = 0. | units.yr
     options["time_end"]         = 10000. |units.hour 
     options["timestep"]         = 1. |units.minute 
     options["timestep_plot"]    = 1. |units.minute 
-    options["timestep_backup"]  = 10. |units.minute 
+    options["timestep_backup"]  = 60. |units.minute 
     options["unit_mass"]        = units.MEarth
     options["disable_collisions"]   = False
     options["unit_length"]      = get_roche_limit_radius(3.3|units.g * units.cm**-3).value_in(units.REarth) * units.REarth
