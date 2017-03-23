@@ -279,8 +279,8 @@ class Resolve_Encounters(object):
         B = self.all_encounters_B
 
         if move_particles:
-            # Try to make sure the radii no longer overlap
-            # This fails because we should be looking in a rotating frame... 
+            # Make sure the radii no longer overlap
+            # This introduces an additional kick, but it prevents singularities...
             
             m_A = A.mass
             m_B = B.mass
@@ -303,8 +303,6 @@ class Resolve_Encounters(object):
 
             A.position +=  (m_B/M).reshape((self.number_of_collisions,1)) * disp
             B.position += -(m_A/M).reshape((self.number_of_collisions,1)) * disp
-
-            # this may be an additional kick, but it seems fair enough...
 
         # Sync
         self.particles_modified.add_particles(A)
