@@ -406,6 +406,8 @@ class Planetary_Disc(object):
         self.potential_energy   = 0 | self.energy_unit
         self.disc_angular_momentum  = [0,0,0] | self.length_unit**2 * self.mass_unit * self.time_unit**-1
 
+        self.timestep = self.options["timestep"]
+
 
     def exit_graceful(self):
         self.write_backup()
@@ -422,18 +424,18 @@ class Planetary_Disc(object):
 
     def evolve_model(self,time):
         if options["verbose"]>0:
-            print "#Evolving to %s"%(time/self.integrator.parameters.timestep)
+            print "#Evolving to %s"%(time/self.timestep)
         if time > self.model_time:
             if options["verbose"]>0:
                 print "#%s > %s, evolving..."%(
-                        time/self.integrator.parameters.timestep, 
-                        self.model_time/self.integrator.parameters.timestep,
+                        time/self.timestep, 
+                        self.model_time/self.timestep,
                         )
         #print time/self.integrator.parameters.timestep, self.model_time/self.integrator.parameters.timestep
         #while (time - self.model_time) > 1e-10|units.s:#self.model_time < time:
-            self.integrator.evolve_model(time + 0.0001*self.integrator.parameters.timestep)
+            self.integrator.evolve_model(time + 0.0001*self.timestep)
             if options["verbose"]>0:
-                print "#integrator now at %s"%(self.integrator.model_time/self.integrator.parameters.timestep)
+                print "#integrator now at %s"%(self.integrator.model_time/self.timestep)
 
             # Detect an error, save data in that case
             if self.integrator.particles[0].x.number == np.nan:
@@ -458,7 +460,7 @@ class Planetary_Disc(object):
                         self.options["gravity"]=="Bonsai"
                         ):
                     if self.options["verbose"]>0:
-                        print "#Timesteps completed: %s"%(self.integrator.model_time / self.integrator.parameters.timestep)
+                        print "#Timesteps completed: %s"%(self.integrator.model_time / self.timestep)
                 number_of_encounters = len(self.collision_detection.particles(0))
 
                 #m_before = self.integrator.particles.mass.sum()
@@ -643,7 +645,7 @@ def main(options):
     
     # Start up gravity code 
     if options["gravity"] == "Rebound":
-        gravity = Rebound(converter)
+        gravity = Rebound(converter,redirection="none")
         gravity.parameters.timestep     = timestep_k2000
         gravity.parameters.integrator   = options["integrator"]
         #gravity.parameters.integrator   = "leapfrog"
@@ -654,7 +656,6 @@ def main(options):
         #gravity.parameters.boundary_size    = 10|units.AU
         if options["whfast_corrector"]:
             gravity.parameters.whfast_corrector = options["whfast_corrector"]
-        #gravity.parameters.epsilon_squared  = (1e-5 | nbody_system.length)**2
     elif options["gravity"] == "Bonsai":
         gravity = Bonsai(converter)
         gravity.parameters.timestep     = timestep_k2000
@@ -669,12 +670,13 @@ def main(options):
         else:
             gravity = PhiGRAPE(converter)
     elif options["gravity"] == "Hermite":
-        gravity = Hermite(converter)
-        gravity.parameters.epsilon_squared  = (1e-4 | nbody_system.length)**2
+        gravity = Hermite(converter, number_of_workers=6)
     else:
         print "Unknown gravity code"
         exit()
+    gravity.parameters.epsilon_squared  = (particles[-1].radius)**2
     print gravity.parameters
+    options["timestep"] = timestep_k2000
 
     planetary_disc = Planetary_Disc(options)
     planetary_disc.add_integrator(gravity)
@@ -796,8 +798,8 @@ if __name__ == "__main__":
     options["verbose"]          = 0
     options["rubblepile"]       = True
     options["gravity"]          = "Rebound"
-    options["integrator"]       = "whfast-helio"
-    options["whfast_corrector"] = 3
+    options["integrator"]       = "ias15"
+    options["whfast_corrector"] = 0
     options["use_gpu"]          = False
     options["time_start"]       = 0. | units.yr
     options["time_end"]         = 10000. |units.hour 
