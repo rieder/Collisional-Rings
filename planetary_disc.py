@@ -299,7 +299,7 @@ class Resolve_Encounters(object):
                     )
 
             #Displacement post-velocity change:
-            disp = (1+self.epsilon_n) * d.reshape((self.number_of_collisions,1)) * n_hat
+            disp = d.reshape((self.number_of_collisions,1)) * n_hat
 
             A.position +=  (m_B/M).reshape((self.number_of_collisions,1)) * disp
             B.position += -(m_A/M).reshape((self.number_of_collisions,1)) * disp
