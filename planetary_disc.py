@@ -669,6 +669,8 @@ def main(options):
             gravity = PhiGRAPE(converter)
     elif options["gravity"] == "Hermite":
         gravity = Hermite(converter, number_of_workers=6)
+        gravity.parameters.dt_min = timestep_k2000
+        gravity.parameters.dt_max = timestep_k2000
     else:
         print "Unknown gravity code"
         exit()
