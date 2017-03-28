@@ -19,6 +19,8 @@ from amuse.units.units import named
 
 from amuse.ext.orbital_elements import orbital_elements_for_rel_posvel_arrays
 
+from botsrots import BotsRots
+
 try:
     from amuse.units import units
     MEarth  = units.MEarth
@@ -405,6 +407,7 @@ class Planetary_Disc(object):
         self.disc_angular_momentum  = [0,0,0] | self.length_unit**2 * self.mass_unit * self.time_unit**-1
 
         self.timestep = self.options["timestep"]
+        self.CollisionResolver  = BotsRots() 
 
 
     def exit_graceful(self):
@@ -507,8 +510,9 @@ class Planetary_Disc(object):
         #        particles.new_channel_to(self.particles)
         #from_encounter_to_particles.copy_attributes(self.sync_attributes)
         #self.from_particles_to_integrator.copy_attributes(self.sync_attributes)
-        self.particles.remove_particles(particles)
         self.integrator.particles.remove_particles(particles)
+        self.particles.remove_particles(particles)
+        #print len(self.particles),len(self.integrator.particles)
         self.define_subgroups()
 
     def add_integrator(self, integrator):
@@ -531,21 +535,22 @@ class Planetary_Disc(object):
             self,
             ):
         #f   = 1.0 # fraction of the Hill radius
-
-        resolution = Resolve_Encounters(
-                self.collision_detection.particles(0).copy(),
-                self.collision_detection.particles(1).copy(),
-                primary = self.planet[0].copy(),
-                time    = self.model_time,
-                f       = self.f,
-                )
-        self.remove_particles(resolution.particles_removed)
-        from_encounter_to_particles = \
-                resolution.particles_modified.new_channel_to(self.particles)
-        from_encounter_to_particles.copy_attributes(self.sync_attributes)
+        colliders_i = self.particles.get_indices_of_keys(self.collision_detection.particles(0).key)
+        colliders_j = self.particles.get_indices_of_keys(self.collision_detection.particles(1).key)
+        d_pos, d_vel = self.CollisionResolver.handle_collision(self.particles,colliders_i,colliders_j)
+        self.particles.position += d_pos
+        self.particles.velocity += d_vel
         self.from_particles_to_integrator.copy_attributes(self.sync_attributes)
 
-        #plot_system(self.particles, "latest.png")
+        distance_to_planet = (self.disc.position - self.planet.position).lengths() - self.planet.radius - self.disc.radius
+        colliding_with_planet = np.where(distance_to_planet < 0|self.planet.x.unit)
+
+        planet_and_colliders    = self.planet + self.disc[colliding_with_planet]
+        self.planet.position    = planet_and_colliders.center_of_mass()
+        self.planet.velocity    = planet_and_colliders.center_of_mass_velocity()
+        self.planet.mass        = planet_and_colliders.mass.sum()
+        self.remove_particles(self.disc[colliding_with_planet])
+
 
 def main(options):
     now = clocktime.strftime("%Y%m%d%H%M%S")
@@ -798,7 +803,7 @@ if __name__ == "__main__":
     options["verbose"]          = 0
     options["rubblepile"]       = True
     options["gravity"]          = "Rebound"
-    options["integrator"]       = "ias15"
+    options["integrator"]       = "whfast"
     options["whfast_corrector"] = 0
     options["use_gpu"]          = False
     options["time_start"]       = 0. | units.yr
