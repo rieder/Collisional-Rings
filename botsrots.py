@@ -25,7 +25,7 @@ class BotsRots(object):
         else:
             raise AmuseException("epsilon_n must be in the range [0, 1]")
 
-    def handle_collision(self, particles, primary_indices, secondary_indices):
+    def handle_collisions(self, particles, primary_indices, secondary_indices):
         d_pos = VectorQuantity(
                 np.zeros(len(particles)*3).reshape(len(particles),3),
                 particles.position.unit,
@@ -35,39 +35,43 @@ class BotsRots(object):
                 particles.velocity.unit,
                 )
 
-        for number in range(len(primary_indices)):
-            i   = primary_indices[number]
-            j   = secondary_indices[number]
-            primary     = particles[i]
-            secondary   = particles[j]
-
-            relative_position   = secondary.position - primary.position
-            distance            = relative_position.length()
-            relative_velocity   = secondary.velocity - primary.velocity
-            surface_distance    = distance - primary.radius - secondary.radius
-    
-            if (
-                    surface_distance <= 0|distance.unit
-                    ):
-                normal  = relative_position / distance
-                nx      = normal[0]
-                ny      = normal[1]
-                nz      = normal[2]
-                normal_velocity = (relative_velocity[0]*nx + relative_velocity[1]*ny + relative_velocity[2]*nz)
+        # This loop could be run with many threads...
+        primaries   = particles[primary_indices]
+        secondaries = particles[secondary_indices]
             
-                total_mass  = primary.mass + secondary.mass
-                pshift  = []
-                vshift  = []
-                pshift.append(1./total_mass * surface_distance * nx)
-                pshift.append(1./total_mass * surface_distance * ny)
-                pshift.append(1./total_mass * surface_distance * nz)
-                vshift.append(1./total_mass * (1.0+self.epsilon_n) * normal_velocity * nx)
-                vshift.append(1./total_mass * (1.0+self.epsilon_n) * normal_velocity * ny)
-                vshift.append(1./total_mass * (1.0+self.epsilon_n) * normal_velocity * nz)
-                for x in range(3):
-                    d_pos[i,x] +=  secondary.mass * pshift[x]
-                    d_vel[i,x] +=  secondary.mass * vshift[x]
-                    d_pos[j,x] += -primary.mass * pshift[x]
-                    d_vel[j,x] += -primary.mass * vshift[x]
-        return d_pos, d_vel
+        relative_position   = secondaries.position - primaries.position
+        distance            = relative_position.lengths()
+        relative_velocity   = secondaries.velocity - primaries.velocity
+        surface_distance    = distance - primaries.radius - secondaries.radius
+        total_mass          = primaries.mass + secondaries.mass
+    
+        normal  = relative_position / distance.reshape((len(primaries),1))
+        nx      = normal[:,0]
+        ny      = normal[:,1]
+        nz      = normal[:,2]
+        normal_velocity = (
+                relative_velocity[:,0]*nx + 
+                relative_velocity[:,1]*ny + 
+                relative_velocity[:,2]*nz
+                )
+        
+        pshift = VectorQuantity(
+                np.zeros(len(primaries)*3).reshape(len(primaries),3),
+                (particles.position.unit / particles.mass.unit),
+                )
+        vshift = VectorQuantity(
+                np.zeros(len(primaries)*3).reshape(len(primaries),3),
+                (particles.velocity.unit / particles.mass.unit),
+                )
+        pshift[:,0] = (1./total_mass * surface_distance * nx)
+        pshift[:,1] = (1./total_mass * surface_distance * ny)
+        pshift[:,2] = (1./total_mass * surface_distance * nz)
+        vshift[:,0] = (1./total_mass * (1.0+self.epsilon_n) * normal_velocity * nx)
+        vshift[:,1] = (1./total_mass * (1.0+self.epsilon_n) * normal_velocity * ny)
+        vshift[:,2] = (1./total_mass * (1.0+self.epsilon_n) * normal_velocity * nz)
+        d_pos[primary_indices] +=  secondaries.mass.reshape((len(primaries),1)) * pshift
+        d_vel[primary_indices] +=  secondaries.mass.reshape((len(primaries),1)) * vshift
+        d_pos[secondary_indices] += -primaries.mass.reshape((len(primaries),1)) * pshift
+        d_vel[secondary_indices] += -primaries.mass.reshape((len(primaries),1)) * vshift
 
+        return d_pos, d_vel
