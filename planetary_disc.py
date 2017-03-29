@@ -651,14 +651,13 @@ def main(options):
     # Start up gravity code 
     if options["gravity"] == "Rebound":
         gravity = Rebound(converter,redirection="none")
-        gravity.parameters.timestep     = timestep_k2000
-        gravity.parameters.integrator   = options["integrator"]
-        #gravity.parameters.integrator   = "leapfrog"
-        #gravity.parameters.opening_angle2 = 0.5
-        gravity.parameters.solver = "compensated"
-        #gravity.parameters.solver = "tree"
-        #gravity.parameters.boundary = "open"
-        #gravity.parameters.boundary_size    = 10|units.AU
+        gravity.parameters.timestep         = timestep_k2000
+        gravity.parameters.integrator       = options["integrator"]
+        gravity.parameters.solver           = "compensated"
+        #gravity.parameters.solver           = "tree"
+        #gravity.parameters.opening_angle2   = 0.5
+        #gravity.parameters.boundary         = "open"
+        #gravity.parameters.boundary_size    = 10|units.REarth
         if options["whfast_corrector"]:
             gravity.parameters.whfast_corrector = options["whfast_corrector"]
     elif options["gravity"] == "Bonsai":
@@ -681,7 +680,7 @@ def main(options):
     else:
         print "Unknown gravity code"
         exit()
-    gravity.parameters.epsilon_squared  = (particles[-1].radius)**2
+    #gravity.parameters.epsilon_squared  = 0#(particles[-1].radius)**2
     print gravity.parameters
     options["timestep"] = timestep_k2000
 
