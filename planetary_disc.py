@@ -481,10 +481,12 @@ class Planetary_Disc(object):
                 print "#Done"
 
     def define_subgroups(self):
-        self.star       = self.particles.select(lambda x: x == "star", ["type"])
-        self.planet     = self.particles.select(lambda x: x == "planet", ["type"])
-        self.moon       = self.particles.select(lambda x: x == "moon", ["type"])
-        self.disc       = self.particles.select(lambda x: x == "disc", ["type"])
+        self.planet = self.particles[0]
+        self.disc   = self.particles[1:]
+        #self.star       = self.particles.select(lambda x: x == "star", ["type"])
+        #self.planet     = self.particles.select(lambda x: x == "planet", ["type"])
+        #self.moon       = self.particles.select(lambda x: x == "moon", ["type"])
+        #self.disc       = self.particles.select(lambda x: x == "disc", ["type"])
 
     def add_particle(self, particle):
         self.add_particles(particle.as_set())
@@ -809,7 +811,7 @@ if __name__ == "__main__":
     options["time_start"]       = 0. | units.yr
     options["time_end"]         = 10000. |units.hour 
     options["timestep"]         = 1. |units.minute 
-    options["timestep_plot"]    = 1. |units.minute 
+    options["timestep_plot"]    = 2. |units.minute 
     options["timestep_backup"]  = 60. |units.minute 
     options["unit_mass"]        = units.MEarth
     options["disable_collisions"]   = False
