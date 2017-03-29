@@ -537,7 +537,7 @@ class Planetary_Disc(object):
         #f   = 1.0 # fraction of the Hill radius
         colliders_i = self.particles.get_indices_of_keys(self.collision_detection.particles(0).key)
         colliders_j = self.particles.get_indices_of_keys(self.collision_detection.particles(1).key)
-        d_pos, d_vel = self.CollisionResolver.handle_collision(self.particles,colliders_i,colliders_j)
+        d_pos, d_vel = self.CollisionResolver.handle_collisions(self.particles,colliders_i,colliders_j)
         self.particles.position += d_pos
         self.particles.velocity += d_vel
         self.from_particles_to_integrator.copy_attributes(self.sync_attributes)
