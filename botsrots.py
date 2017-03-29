@@ -69,9 +69,14 @@ class BotsRots(object):
         vshift[:,0] = (1./total_mass * (1.0+self.epsilon_n) * normal_velocity * nx)
         vshift[:,1] = (1./total_mass * (1.0+self.epsilon_n) * normal_velocity * ny)
         vshift[:,2] = (1./total_mass * (1.0+self.epsilon_n) * normal_velocity * nz)
-        d_pos[primary_indices] +=  secondaries.mass.reshape((len(primaries),1)) * pshift
-        d_vel[primary_indices] +=  secondaries.mass.reshape((len(primaries),1)) * vshift
-        d_pos[secondary_indices] += -primaries.mass.reshape((len(primaries),1)) * pshift
-        d_vel[secondary_indices] += -primaries.mass.reshape((len(primaries),1)) * vshift
+        dpos_pri = secondaries.mass.reshape((len(primaries),1)) * pshift
+        dvel_pri = secondaries.mass.reshape((len(primaries),1)) * vshift
+        dpos_sec = -primaries.mass.reshape((len(primaries),1)) * pshift
+        dvel_sec = -primaries.mass.reshape((len(primaries),1)) * vshift
+        for i in range(len(primary_indices)):
+            d_pos[primary_indices[i]] += dpos_pri[i]
+            d_vel[primary_indices[i]] += dvel_pri[i] 
+            d_pos[secondary_indices[i]] += dpos_sec[i]
+            d_vel[secondary_indices[i]] += dvel_sec[i] 
 
         return d_pos, d_vel
