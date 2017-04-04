@@ -404,7 +404,6 @@ class Planetary_Disc(object):
         self.model_time         = 0 | self.time_unit
         self.kinetic_energy     = 0 | self.energy_unit
         self.potential_energy   = 0 | self.energy_unit
-        self.disc_angular_momentum  = [0,0,0] | self.length_unit**2 * self.mass_unit * self.time_unit**-1
 
         self.timestep = self.options["timestep"]
         self.CollisionResolver  = BotsRots() 
@@ -432,8 +431,6 @@ class Planetary_Disc(object):
                         time/self.timestep, 
                         self.model_time/self.timestep,
                         )
-        #print time/self.integrator.parameters.timestep, self.model_time/self.integrator.parameters.timestep
-        #while (time - self.model_time) > 1e-10|units.s:#self.model_time < time:
             self.integrator.evolve_model(time + 0.0001*self.timestep)
             if options["verbose"]>0:
                 print "#integrator now at %s"%(self.integrator.model_time/self.timestep)
@@ -445,10 +442,11 @@ class Planetary_Disc(object):
                 if options["verbose"]>0:
                     print "#Updating model"
                 self.from_integrator_to_particles.copy()
+                if options["verbose"]>0:
+                    print "#Getting energies from model"
                 self.model_time             = self.integrator.model_time
                 self.kinetic_energy         = self.integrator.kinetic_energy
                 self.potential_energy       = self.integrator.potential_energy
-                self.disc_angular_momentum  = self.disc.total_angular_momentum()
 
             if self.collision_detection.is_set():
                 if options["verbose"]>0:
@@ -536,6 +534,8 @@ class Planetary_Disc(object):
     def resolve_encounters(
             self,
             ):
+        if option["verbose"]>1:
+            print "%d : Resolving encounters"%(clocktime.time()-starttime)
         #f   = 1.0 # fraction of the Hill radius
         colliders_i = self.particles.get_indices_of_keys(self.collision_detection.particles(0).key)
         colliders_j = self.particles.get_indices_of_keys(self.collision_detection.particles(1).key)
@@ -555,7 +555,8 @@ class Planetary_Disc(object):
 
 
 def main(options):
-    now = clocktime.strftime("%Y%m%d%H%M%S")
+    starttime   = clocktime.time()
+    now         = clocktime.strftime("%Y%m%d%H%M%S")
 
     # Read the initial conditions file provided. This uses "Giant Impact" units.
     
@@ -565,6 +566,8 @@ def main(options):
     options["converter"] = converter
 
     time        = options["time_start"]
+    if options["verbose"]>1:
+        print "%d : Start reading particles"%(clocktime.time()-starttime)
     if len(sys.argv) >= 2:
         filename = sys.argv[1]
         ext = filename.split('.')[-1]
@@ -604,6 +607,8 @@ def main(options):
     else:
         particles = initial_particles(10000)
         write_set_to_file(particles,"this_run.hdf5","amuse",)
+    if options["verbose"]>1:
+        print "%d : Read particles"%(clocktime.time()-starttime)
 
     
     rundir += "-%s-%s"%(
@@ -639,15 +644,11 @@ def main(options):
             )
 
     converter_earthunits = nbody_system.nbody_to_si(1|units.MEarth,1|units.REarth)
-    #time_unit   = kepler_time.value_in(units.s) * units.s
-    #energy_unit = units.MEarth * units.REarth**2 * time_unit**-2
-    #print (1|units.s).value_in(time_unit)
-    #print (1|units.kg).value_in(mass_unit)
-    #print (1|units.m).value_in(length_unit)
-    #print (1|units.erg).value_in(energy_unit)
 
     timestep_k2000 = (kepler_time/(2*np.pi))*(2**-9)
     
+    if options["verbose"]>1:
+        print "%d : Starting gravity"%(clocktime.time()-starttime)
     # Start up gravity code 
     if options["gravity"] == "Rebound":
         gravity = Rebound(converter,redirection="none")
@@ -680,7 +681,6 @@ def main(options):
     else:
         print "Unknown gravity code"
         exit()
-    #gravity.parameters.epsilon_squared  = 0#(particles[-1].radius)**2
     print gravity.parameters
     options["timestep"] = timestep_k2000
 
@@ -709,10 +709,9 @@ def main(options):
     log.write("#1 length = %s\n"%(converter_earthunits.to_si(1|nbody_system.length)))
     log.write("#1 mass   = %s\n"%(converter_earthunits.to_si(1|nbody_system.mass)))
     log.write("#1 energy = %s\n"%(converter_earthunits.to_si(1|nbody_system.energy)))
-    log.write("#Time N E_kin_G E_kin_A E_pot l2 l2_disc M_disc a_mean a_sigma e_mean e_sigma inc_mean inc_sigma\n")
-    log.write("#%s n %s %s %s %s %s %s %s %s\n"%(
+    log.write("#Time N E_kin E_pot l2 M_disc a_mean a_sigma e_mean e_sigma inc_mean inc_sigma\n")
+    log.write("#%s n %s %s %s %s %s %s\n"%(
         units.s,
-        nbody_system.energy,#s.erg,
         nbody_system.energy,#s.erg,
         nbody_system.energy,#s.erg,
         (units.REarth**2 * units.MEarth * units.day**-1)**2,
@@ -725,8 +724,12 @@ def main(options):
     log.flush()
 
     time += timestep_k2000
+    if options["verbose"]>1:
+        print "%d : Starting loop"%(clocktime.time()-starttime)
     while time < t_end:
         if time >= plot_time:
+            if options["verbose"]>1:
+                print "%d : Making plot"%(clocktime.time()-starttime)
             plot_system(
                     planetary_disc.particles,
                     "%s/plot-%05i.png"%(plotdir,plot),
@@ -734,6 +737,8 @@ def main(options):
             plot += 1
             plot_time += plot_timestep
         if time >= backup_time:
+            if options["verbose"]>1:
+                print "%d : Making backup"%(clocktime.time()-starttime)
             planetary_disc.write_backup(filename="%s/savefile-%i.hdf5"%(backupdir,backup))
             backup += 1
             backup_time += backup_timestep
@@ -744,14 +749,9 @@ def main(options):
                         time / planetary_disc.integrator.parameters.timestep,
                         )
             time += timestep
-            #log_time.append(planetary_disc.model_time)
-            #log_kinetic_energy.append(planetary_disc.kinetic_energy)
-            #log_potential_energy.append(planetary_disc.potential_energy)
-            #log_angular_momentum.append(planetary_disc.disc_angular_momentum)
             kinetic_energy = planetary_disc.kinetic_energy
             potential_energy = planetary_disc.potential_energy
             angular_momentum = planetary_disc.particles.total_angular_momentum()
-            disc_angular_momentum = planetary_disc.disc.total_angular_momentum()
             semimajor_axis, eccentricity, true_anomaly,inc, long_asc_node, arg_per_mat = orbital_elements_for_rel_posvel_arrays(
                     planetary_disc.disc.position - planetary_disc.planet.position, 
                     planetary_disc.disc.velocity - planetary_disc.planet.velocity, 
@@ -761,22 +761,15 @@ def main(options):
             #FIXME kinetic energy per particle
             #FIXME angular momentum per particle
 
-            #print "Time %s N %i E_kin %s E_pot %s angmom %s %s %s"%(
-            log.write("%s %i %s %s %s %s %s %s %s %s %s %s %s %s\n"%(
+            log.write("%s %i %s %s %s %s %s %s %s %s %s %s\n"%(
                     planetary_disc.model_time.value_in(units.s), 
                     len(planetary_disc.particles),
                     converter_earthunits.to_nbody(kinetic_energy).value_in(nbody_system.energy),
-                    converter_earthunits.to_nbody(planetary_disc.disc.kinetic_energy()).value_in(nbody_system.energy),
                     converter_earthunits.to_nbody(potential_energy).value_in(nbody_system.energy),
                     (
                         angular_momentum[0]**2 + 
                         angular_momentum[1]**2 + 
                         angular_momentum[2]**2
-                        ).value_in(units.REarth**4 * units.MEarth**2 * units.day**-2),
-                    (
-                        disc_angular_momentum[0]**2 + 
-                        disc_angular_momentum[1]**2 + 
-                        disc_angular_momentum[2]**2
                         ).value_in(units.REarth**4 * units.MEarth**2 * units.day**-2),
                     planetary_disc.disc.mass.sum().value_in(units.MEarth),
                     semimajor_axis.mean().value_in(units.REarth), 
@@ -810,7 +803,7 @@ if __name__ == "__main__":
     options["time_start"]       = 0. | units.yr
     options["time_end"]         = 10000. |units.hour 
     options["timestep"]         = 1. |units.minute 
-    options["timestep_plot"]    = 2. |units.minute 
+    options["timestep_plot"]    = 5. |units.minute 
     options["timestep_backup"]  = 60. |units.minute 
     options["unit_mass"]        = units.MEarth
     options["disable_collisions"]   = False
