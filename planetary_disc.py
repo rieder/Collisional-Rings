@@ -534,7 +534,7 @@ class Planetary_Disc(object):
     def resolve_encounters(
             self,
             ):
-        if option["verbose"]>1:
+        if options["verbose"]>1:
             print "%d : Resolving encounters"%(clocktime.time()-starttime)
         #f   = 1.0 # fraction of the Hill radius
         colliders_i = self.particles.get_indices_of_keys(self.collision_detection.particles(0).key)
