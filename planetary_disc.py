@@ -715,7 +715,6 @@ def main(options):
         nbody_system.energy,#s.erg,
         nbody_system.energy,#s.erg,
         (units.REarth**2 * units.MEarth * units.day**-1)**2,
-        (units.REarth**2 * units.MEarth * units.day**-1)**2,
         units.MEarth,
         units.REarth,
         units.REarth,
