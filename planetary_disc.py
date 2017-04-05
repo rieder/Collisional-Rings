@@ -417,9 +417,9 @@ class Planetary_Disc(object):
     def write_backup(self, filename="continue.hdf5"):
         self.particles.collection_attributes.time = self.model_time
         if self.options["gravity"]=="Rebound":
-            self.particles.collection_attributes.timestep = self.integrator.model_time / self.integrator.parameters.timestep
+            self.particles.collection_attributes.timestep = self.integrator.model_time / self.timestep
         if self.options["gravity"]=="Bonsai":
-            self.particles.collection_attributes.timestep = self.integrator.model_time / self.integrator.parameters.timestep
+            self.particles.collection_attributes.timestep = self.integrator.model_time / self.timestep
         #self.particles.collection_attributes.grav_parameters = self.integrator.parameters
         write_set_to_file(self.particles,filename,"amuse")
 
@@ -647,6 +647,7 @@ def main(options):
     #print (1|units.erg).value_in(energy_unit)
 
     timestep_k2000 = (kepler_time/(2*np.pi))*(2**-9)
+    options["timestep"] = timestep_k2000
     
     # Start up gravity code 
     if options["gravity"] == "Rebound":
@@ -682,7 +683,6 @@ def main(options):
         exit()
     #gravity.parameters.epsilon_squared  = 0#(particles[-1].radius)**2
     print gravity.parameters
-    options["timestep"] = timestep_k2000
 
     planetary_disc = Planetary_Disc(options)
     planetary_disc.add_integrator(gravity)
@@ -740,8 +740,8 @@ def main(options):
         if (time - planetary_disc.model_time) <= 0.5 * timestep:
             if options["verbose"]>0:
                 print "#Increasing timestep: %s - %s <= 0.5"%(
-                        planetary_disc.model_time / planetary_disc.integrator.parameters.timestep, 
-                        time / planetary_disc.integrator.parameters.timestep,
+                        planetary_disc.model_time / planetary_disc.timestep, 
+                        time / planetary_disc.timestep,
                         )
             time += timestep
             #log_time.append(planetary_disc.model_time)
@@ -791,8 +791,8 @@ def main(options):
         else:
             if options["verbose"]>0:
                 print "#Not increasing timestep: %s - %s > 0.5"%(
-                        planetary_disc.model_time / planetary_disc.integrator.parameters.timestep, 
-                        time / planetary_disc.integrator.parameters.timestep,
+                        planetary_disc.model_time / planetary_disc.timestep, 
+                        time / planetary_disc.timestep,
                         )
         planetary_disc.evolve_model(time)
 
@@ -801,16 +801,16 @@ def main(options):
 
 if __name__ == "__main__":
     options     = {}
-    options["verbose"]          = 0
+    options["verbose"]          = 1
     options["rubblepile"]       = True
-    options["gravity"]          = "Rebound"
-    options["integrator"]       = "whfast"
+    options["gravity"]          = "Hermite"
+    options["integrator"]       = "ias15"
     options["whfast_corrector"] = 0
     options["use_gpu"]          = False
     options["time_start"]       = 0. | units.yr
     options["time_end"]         = 10000. |units.hour 
     options["timestep"]         = 1. |units.minute 
-    options["timestep_plot"]    = 2. |units.minute 
+    options["timestep_plot"]    = 5. |units.minute 
     options["timestep_backup"]  = 60. |units.minute 
     options["unit_mass"]        = units.MEarth
     options["disable_collisions"]   = False
