@@ -20,8 +20,8 @@ def plot_interaction(
     # T = 90 deg from normal, pointing to primary
 
     # Constants
-    A = a[0]
-    B = a[1]
+    A = a[0].copy()
+    B = a[1].copy()
     m_A = A.mass
     m_B = B.mass
     M   = m_A + m_B
@@ -127,21 +127,29 @@ def plot_system(
         plotname, 
         scatter=True,
         center_on_most_massive=True,
+        center=VectorQuantity([0,0,0],units.AU),
         plot_roche = True,
         ):
+    xmin = [2., 0.]
+    xmax = [2., 1.]
+    ymin = [2., 0.25]
+    ymax = [2., 0.25]
     particles               = particles.copy()
-    particles[0].colour     = "blue"
-    particles[1:].colour    = "black"
-    length_unit = aR
-    fig = plt.figure(figsize=(14,8))
+    particles[0].colour     = "orange"
+    particles[1].colour     = "red"
+    particles[2:].colour    = "black"
+    length_unit = units.AU#aR
+    fig = plt.figure(figsize=(14,8), dpi=600)
     axes  = []
     axes.append(fig.add_subplot(1,2,1,aspect=1))
     axes.append(fig.add_subplot(1,2,2,aspect=1))
     maxmass = particles.mass.max()
-    most_massive = particles.select(lambda x: x == maxmass,["mass"])[0]
-    x = particles.x - most_massive.x
-    y = particles.y - most_massive.y
-    z = particles.z - most_massive.z
+    if center_on_most_massive:
+        most_massive = particles.select(lambda x: x == maxmass,["mass"])[0]
+        center = most_massive.position
+    x = particles.x - center.x
+    y = particles.y - center.y
+    z = particles.z - center.z
     r = (x**2 + y**2)**0.5
     #r = (particles.position - most_massive.position).lengths()
     x_axes = [x,r]
@@ -154,24 +162,20 @@ def plot_system(
                 y_axes[0].max().value_in(length_unit),
                 )
             )
-    xmin = [2., 0.]
-    xmax = [2., 3.]
-    ymin = [2., 0.5]
-    ymax = [2., 0.5]
 
     fig.canvas.draw()
     #FIXME Plot Roche radius
-    roche = plt.Circle(
-            (
-                (x_axes[0][0]).value_in(length_unit),
-                (y_axes[0][0]).value_in(length_unit),
-                ),
-            2.9 * particles[0].radius.value_in(length_unit),
-            facecolor="none",
-            edgecolor="black",
-            alpha = 0.5,
-            )
-    axes[0].add_artist(roche)
+    #roche = plt.Circle(
+    #        (
+    #            (x_axes[0][0]).value_in(length_unit),
+    #            (y_axes[0][0]).value_in(length_unit),
+    #            ),
+    #        2.9 * particles[0].radius.value_in(length_unit),
+    #        facecolor="none",
+    #        edgecolor="black",
+    #        alpha = 0.5,
+    #        )
+    #axes[0].add_artist(roche)
 
     for i in range(len(axes)):
         ax = axes[i]
@@ -184,7 +188,7 @@ def plot_system(
                     s           = 1,
                     edgecolors  = "none",
                     facecolors  = particles.colour,
-                    alpha       = 0.5,
+                    #alpha       = 0.1,
                     )
         else:
             circles = []
@@ -198,7 +202,7 @@ def plot_system(
                             particles[j].radius.value_in(length_unit),
                             facecolor   = particles[j].colour,
                             edgecolor   = "none",
-                            alpha       = 0.5,
+                            #alpha       = 0.5,
                             )
                         )
                 ax.add_artist(circles[-1])
@@ -210,6 +214,7 @@ def plot_system(
         ax.set_ylabel("[%s]"%length_unit)
 
         r       = particles.radius.value_in(length_unit)
+        r[2:] *= 10
         N       = len(particles)
         # Calculate radius in pixels :
         rr_pix  = (ax.transData.transform(np.vstack([r, r]).T) -
@@ -219,7 +224,7 @@ def plot_system(
         # Calculate and update size in points:
         size_pt = (2*rpix/fig.dpi*72)**2
         scat.set_sizes(size_pt)
-    plt.savefig(plotname)
+    plt.savefig(plotname, dpi=fig.dpi)
     plt.close(fig)
     return
 

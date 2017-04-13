@@ -479,12 +479,13 @@ class Planetary_Disc(object):
                 print "#Done"
 
     def define_subgroups(self):
-        self.planet = self.particles[0]
-        self.disc   = self.particles[1:]
-        #self.star       = self.particles.select(lambda x: x == "star", ["type"])
-        #self.planet     = self.particles.select(lambda x: x == "planet", ["type"])
+        #self.star       = self.particles[0]
+        #self.planet     = self.particles[1]
+        #self.disc       = self.particles[2:]
+        self.star       = self.particles.select(lambda x: x == "star", ["type"])
+        self.planet     = self.particles.select(lambda x: x == "planet", ["type"])
         #self.moon       = self.particles.select(lambda x: x == "moon", ["type"])
-        #self.disc       = self.particles.select(lambda x: x == "disc", ["type"])
+        self.disc       = self.particles.select(lambda x: x == "disc", ["type"])
 
     def add_particle(self, particle):
         self.add_particles(particle.as_set())
@@ -571,33 +572,7 @@ def main(options):
     if len(sys.argv) >= 2:
         filename = sys.argv[1]
         ext = filename.split('.')[-1]
-        if ext == "txt":
-            data = open(filename,"r").readlines()
-            
-            time = converter.to_si(float(data[0]) | nbody_system.time)
-            nparticles = int(data[1])
-            particles = Particles(nparticles)
-            for n in range(nparticles):
-                line = data[2+n].split()
-                number = int(line[0])
-                mass, radius, x, y, z, vx, vy, vz = map(float,line[1:])
-                particles[n].number = number
-                particles[n].mass = converter.to_si(mass|nbody_system.mass)
-                particles[n].radius = converter.to_si(radius | nbody_system.length)
-                particles[n].position = converter.to_si(
-                        VectorQuantity(unit=nbody_system.length,array=[x,y,z])
-                        )
-                particles[n].velocity = converter.to_si(
-                        VectorQuantity(unit=nbody_system.speed,array=[vx,vy,vz])
-                        )
-        
-            particles.position -= particles.center_of_mass()
-            particles.velocity -= particles.center_of_mass_velocity()
-            
-            particles[0].type   = "planet"
-            particles[1:].type  = "disc"
-            rundir = "./runs/" + filename.split('/')[-1][:-4] 
-        elif ext == "hdf5":
+        if ext == "hdf5":
             particles = read_set_from_file(filename, "amuse")
             rundir = "./runs/" + filename.split('/')[-1][:-5] 
         else:
@@ -605,8 +580,8 @@ def main(options):
             exit()
 
     else:
-        particles = initial_particles(10000)
-        write_set_to_file(particles,"this_run.hdf5","amuse",)
+        print "No initial conditions given"
+        exit()
     if options["verbose"]>1:
         print "%d : Read particles"%(clocktime.time()-starttime)
 
@@ -732,6 +707,8 @@ def main(options):
             plot_system(
                     planetary_disc.particles,
                     "%s/plot-%05i.png"%(plotdir,plot),
+                    center_on_most_massive=False,
+                    center = planetary_disc.planet.position,
                     )
             plot += 1
             plot_time += plot_timestep
@@ -795,16 +772,16 @@ if __name__ == "__main__":
     options     = {}
     options["verbose"]          = 1
     options["rubblepile"]       = True
-    options["gravity"]          = "Hermite"
-    options["integrator"]       = "ias15"
+    options["gravity"]          = "Rebound"
+    options["integrator"]       = "whfast"
     options["whfast_corrector"] = 0
     options["use_gpu"]          = False
     options["time_start"]       = 0. | units.yr
-    options["time_end"]         = 10000. |units.hour 
-    options["timestep"]         = 1. |units.minute 
-    options["timestep_plot"]    = 5. |units.minute 
-    options["timestep_backup"]  = 60. |units.minute 
-    options["unit_mass"]        = units.MEarth
+    options["time_end"]         = 10000. |units.yr 
+    options["timestep"]         = 24 |units.hour
+    options["timestep_plot"]    = 24 |units.hour
+    options["timestep_backup"]  = 365.25 |units.day 
+    options["unit_mass"]        = 40*units.MJupiter
     options["disable_collisions"]   = False
-    options["unit_length"]      = get_roche_limit_radius(3.3|units.g * units.cm**-3).value_in(units.REarth) * units.REarth
+    options["unit_length"]      = 80 * units.RJupiter#get_roche_limit_radius(1.0|units.g * units.cm**-3).value_in(units.RJupiter) * units.RJupiter
     main(options)
