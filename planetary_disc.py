@@ -426,12 +426,16 @@ class Planetary_Disc(object):
         if options["verbose"]>0:
             print "#Evolving to %s"%(time/self.timestep)
         if time > self.model_time:
+            #print self.particles[0]
+            number_of_encounters = 0
+            last_encounter_0 = -1
+            last_encounter_1 = -1
             if options["verbose"]>0:
                 print "#%s > %s, evolving..."%(
                         time/self.timestep, 
                         self.model_time/self.timestep,
                         )
-            self.integrator.evolve_model(time + 0.0001*self.timestep)
+            self.integrator.evolve_model(time + 0.000001*self.timestep)
             if options["verbose"]>0:
                 print "#integrator now at %s"%(self.integrator.model_time/self.timestep)
 
@@ -448,33 +452,46 @@ class Planetary_Disc(object):
                 self.kinetic_energy         = self.integrator.kinetic_energy
                 self.potential_energy       = self.integrator.potential_energy
 
-            if self.collision_detection.is_set():
-                if options["verbose"]>0:
-                    print "#Handling collisions (%i with %i)"%(
-                        len(self.collision_detection.particles(0)),
-                        len(self.collision_detection.particles(1)),
-                        )
-                if (
-                        self.options["gravity"]=="Rebound" or
-                        self.options["gravity"]=="Bonsai"
-                        ):
-                    if self.options["verbose"]>0:
-                        print "#Timesteps completed: %s"%(self.integrator.model_time / self.timestep)
-                number_of_encounters = len(self.collision_detection.particles(0))
-
-                #m_before = self.integrator.particles.mass.sum()
-                self.resolve_encounters()
-                #m_after = self.integrator.particles.mass.sum()
-
-                #if (
-                #        np.abs((m_after - m_before).value_in(units.MEarth)) > 
-                #        self.converter.to_si(
-                #            (1e-10|nbody_system.mass)
-                #            ).value_in(units.MEarth)
-                #        ):
-                #    print "#Mass changed!", (m_after - m_before).as_quantity_in(units.MEarth)
+            if (
+                    self.options["gravity"]=="Rebound" or
+                    self.options["gravity"]=="Bonsai"
+                    ):
                 if self.options["verbose"]>0:
-                    print "#Handled %i encounters this timestep"%(number_of_encounters)
+                    print "#Timesteps completed: %s"%(self.integrator.model_time / self.timestep)
+            if options["verbose"]>0:
+                print "#Handling collisions"
+            if self.collision_detection.is_set():
+                number_of_loops = 0
+                if self.options["gravity"] == "ph4":
+                    max_number_of_loops = len(self.particles)
+                else:
+                    max_number_of_loops = 1
+                while (len(self.collision_detection.particles(0)) > 0) and number_of_loops < max_number_of_loops:
+                    number_of_loops += 1
+                    this_encounter_0 = self.collision_detection.particles(0)[0].key
+                    this_encounter_1 = self.collision_detection.particles(1)[0].key
+                    if (this_encounter_0 == last_encounter_0 and this_encounter_1 == last_encounter_1):
+                        p0 = self.collision_detection.particles(0)[0]
+                        p1 = self.collision_detection.particles(1)[0]
+                    last_encounter_0 = this_encounter_0
+                    last_encounter_1 = this_encounter_1
+                    
+                    number_of_encounters += len(self.collision_detection.particles(0))
+    
+                    #m_before = self.integrator.particles.mass.sum()
+                    self.resolve_encounters()
+                    #m_after = self.integrator.particles.mass.sum()
+    
+                    #if (
+                    #        np.abs((m_after - m_before).value_in(units.MEarth)) > 
+                    #        self.converter.to_si(
+                    #            (1e-10|nbody_system.mass)
+                    #            ).value_in(units.MEarth)
+                    #        ):
+                    #    print "#Mass changed!", (m_after - m_before).as_quantity_in(units.MEarth)
+                    self.integrator.evolve_model(time + 0.000001*self.timestep)
+            if self.options["verbose"]>0:
+                print "#Handled %i encounters this timestep"%(number_of_encounters)
             if options["verbose"]>0:
                 print "#Done"
 
@@ -505,16 +522,17 @@ class Planetary_Disc(object):
         #self.define_subgroups()
         
     def remove_particles(self, particles):
-        if options["verbose"]>0:
-            print "#Removing %i particles"%(len(particles))
-        #from_encounter_to_particles = \
-        #        particles.new_channel_to(self.particles)
-        #from_encounter_to_particles.copy_attributes(self.sync_attributes)
-        #self.from_particles_to_integrator.copy_attributes(self.sync_attributes)
-        self.integrator.particles.remove_particles(particles)
-        self.particles.remove_particles(particles)
-        #print len(self.particles),len(self.integrator.particles)
-        self.define_subgroups()
+        if len(particles) > 0:
+            if options["verbose"]>0:
+                print "#Removing %i particles"%(len(particles))
+            #from_encounter_to_particles = \
+            #        particles.new_channel_to(self.particles)
+            #from_encounter_to_particles.copy_attributes(self.sync_attributes)
+            #self.from_particles_to_integrator.copy_attributes(self.sync_attributes)
+            self.integrator.particles.remove_particles(particles)
+            self.particles.remove_particles(particles)
+            #print len(self.particles),len(self.integrator.particles)
+            self.define_subgroups()
 
     def add_integrator(self, integrator):
         self.integrator             = integrator
@@ -538,12 +556,15 @@ class Planetary_Disc(object):
         if options["verbose"]>1:
             print "%d : Resolving encounters"%(clocktime.time()-starttime)
         #f   = 1.0 # fraction of the Hill radius
+        #print self.integrator.particles[0]
+        #print self.particles[0]
         colliders_i = self.particles.get_indices_of_keys(self.collision_detection.particles(0).key)
         colliders_j = self.particles.get_indices_of_keys(self.collision_detection.particles(1).key)
         d_pos, d_vel = self.CollisionResolver.handle_collisions(self.particles,colliders_i,colliders_j)
         self.particles.position += d_pos
         self.particles.velocity += d_vel
-        self.from_particles_to_integrator.copy_attributes(self.sync_attributes)
+        self.from_particles_to_integrator.copy_attributes(["mass","x","y","z","vx","vy","vz"])
+        self.from_particles_to_integrator.copy_attributes(["radius"])
 
         distance_to_planet = (self.disc.position - self.planet.position).lengths() - self.planet.radius - self.disc.radius
         colliding_with_planet = np.where(distance_to_planet < 0|self.planet.x.unit)
@@ -553,6 +574,13 @@ class Planetary_Disc(object):
         self.planet.velocity    = planet_and_colliders.center_of_mass_velocity()
         self.planet.mass        = planet_and_colliders.mass.sum()
         self.remove_particles(self.disc[colliding_with_planet])
+        #print self.integrator.particles[0]
+        #print self.particles[0]
+        #self.disc[colliding_with_planet].x *= 50
+        #self.disc[colliding_with_planet].mass *= 0
+        #self.disc[colliding_with_planet].radius *= 0
+        #self.from_particles_to_integrator.copy_attributes(["mass","x","y","z","vx","vy","vz"])
+        #self.from_particles_to_integrator.copy_attributes(["radius"])
 
 
 def main(options):
@@ -632,19 +660,30 @@ def main(options):
         gravity.parameters.integrator       = options["integrator"]
         gravity.parameters.solver           = "compensated"
         #gravity.parameters.solver           = "tree"
-        #gravity.parameters.opening_angle2   = 0.5
+        #gravity.parameters.opening_angle2   = 0.25
         #gravity.parameters.boundary         = "open"
         #gravity.parameters.boundary_size    = 10|units.REarth
         if options["whfast_corrector"]:
             gravity.parameters.whfast_corrector = options["whfast_corrector"]
     elif options["gravity"] == "Bonsai":
-        gravity = Bonsai(converter)
-        gravity.parameters.timestep     = timestep_k2000
+        #gravity = Bonsai(converter,redirection="none")
+        gravity = Bonsai(converter,)
+        gravity.parameters.timestep         = timestep_k2000
+        gravity.parameters.opening_angle    = 0.5
+        #gravity.parameters.epsilon_squared  = (0.1 * particles[-1].radius)**2
+        gravity.parameters.epsilon_squared  = 0.0  | nbody_system.length**2
+    elif options["gravity"] == "Pikachu":
+        #gravity = Bonsai(converter,redirection="none")
+        gravity = Pikachu(converter,)
+        gravity.parameters.timestep         = timestep_k2000
+        gravity.parameters.opening_angle    = 0.5
+        #gravity.parameters.epsilon_squared  = (0.1 * particles[-1].radius)**2
+        gravity.parameters.epsilon_squared  = 0.0  | nbody_system.length**2
     elif options["gravity"] == "ph4":
         if options["use_gpu"]:
-            gravity = ph4(converter, mode="gpu")
+            gravity = ph4(converter, mode="gpu", redirection="none")
         else:
-            gravity = ph4(converter)
+            gravity = ph4(converter, redirection="none")
     elif options["gravity"] == "phigrape":
         if options["use_gpu"]:
             gravity = PhiGRAPE(converter, mode="gpu")
@@ -770,12 +809,12 @@ def main(options):
 
 if __name__ == "__main__":
     options     = {}
-    options["verbose"]          = 1
+    options["verbose"]          = 0
     options["rubblepile"]       = True
-    options["gravity"]          = "Rebound"
+    options["gravity"]          = "Bonsai"
     options["integrator"]       = "whfast"
     options["whfast_corrector"] = 0
-    options["use_gpu"]          = False
+    options["use_gpu"]          = True
     options["time_start"]       = 0. | units.yr
     options["time_end"]         = 10000. |units.yr 
     options["timestep"]         = 24 |units.hour
