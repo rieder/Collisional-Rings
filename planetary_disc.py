@@ -648,15 +648,14 @@ def main(options):
 
     converter_earthunits = nbody_system.nbody_to_si(1|units.MEarth,1|units.REarth)
 
-    timestep_k2000 = (kepler_time/(2*np.pi))*(2**-9)
-    options["timestep"] = timestep_k2000
+    options["timestep"] = (kepler_time/(2*np.pi))*(2**-4)
     
     if options["verbose"]>1:
         print "%d : Starting gravity"%(clocktime.time()-starttime)
     # Start up gravity code 
     if options["gravity"] == "Rebound":
         gravity = Rebound(converter,redirection="none")
-        gravity.parameters.timestep         = timestep_k2000
+        gravity.parameters.timestep         = options["timestep"]
         gravity.parameters.integrator       = options["integrator"]
         gravity.parameters.solver           = "compensated"
         #gravity.parameters.solver           = "tree"
@@ -668,14 +667,14 @@ def main(options):
     elif options["gravity"] == "Bonsai":
         #gravity = Bonsai(converter,redirection="none")
         gravity = Bonsai(converter,)
-        gravity.parameters.timestep         = timestep_k2000
+        gravity.parameters.timestep         = options["timestep"]
         gravity.parameters.opening_angle    = 0.5
         #gravity.parameters.epsilon_squared  = (0.1 * particles[-1].radius)**2
         gravity.parameters.epsilon_squared  = 0.0  | nbody_system.length**2
     elif options["gravity"] == "Pikachu":
         #gravity = Bonsai(converter,redirection="none")
         gravity = Pikachu(converter,)
-        gravity.parameters.timestep         = timestep_k2000
+        gravity.parameters.timestep         = options["timestep"]
         gravity.parameters.opening_angle    = 0.5
         #gravity.parameters.epsilon_squared  = (0.1 * particles[-1].radius)**2
         gravity.parameters.epsilon_squared  = 0.0  | nbody_system.length**2
@@ -691,8 +690,8 @@ def main(options):
             gravity = PhiGRAPE(converter)
     elif options["gravity"] == "Hermite":
         gravity = Hermite(converter, number_of_workers=6)
-        gravity.parameters.dt_min = timestep_k2000
-        gravity.parameters.dt_max = timestep_k2000
+        gravity.parameters.dt_min = options["timestep"]
+        gravity.parameters.dt_max = options["timestep"]
     else:
         print "Unknown gravity code"
         exit()
@@ -705,7 +704,7 @@ def main(options):
     t_start         = time
     plot_time       = time
     backup_time     = time
-    timestep        = timestep_k2000#options["timestep"]
+    timestep        = options["timestep"]
     plot_timestep   = options["timestep_plot"]
     backup_timestep = options["timestep_backup"]
     t_end           = options["time_end"]
@@ -736,7 +735,7 @@ def main(options):
         )
     log.flush()
 
-    time += timestep_k2000
+    time += options["timestep"]
     if options["verbose"]>1:
         print "%d : Starting loop"%(clocktime.time()-starttime)
     while time < t_end:
@@ -809,18 +808,18 @@ def main(options):
 
 if __name__ == "__main__":
     options     = {}
-    options["verbose"]          = 0
+    options["verbose"]          = 1
     options["rubblepile"]       = True
-    options["gravity"]          = "Bonsai"
-    options["integrator"]       = "whfast"
+    options["gravity"]          = "Rebound"
+    options["integrator"]       = "leapfrog"
     options["whfast_corrector"] = 0
     options["use_gpu"]          = True
     options["time_start"]       = 0. | units.yr
     options["time_end"]         = 10000. |units.yr 
-    options["timestep"]         = 24 |units.hour
+    #options["timestep"]         = 24 |units.hour
     options["timestep_plot"]    = 24 |units.hour
     options["timestep_backup"]  = 365.25 |units.day 
-    options["unit_mass"]        = 40*units.MJupiter
+    options["unit_mass"]        = 80*units.MJupiter
     options["disable_collisions"]   = False
     options["unit_length"]      = 80 * units.RJupiter#get_roche_limit_radius(1.0|units.g * units.cm**-3).value_in(units.RJupiter) * units.RJupiter
     main(options)
