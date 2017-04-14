@@ -139,7 +139,7 @@ def plot_system(
     particles[1].colour     = "red"
     particles[2:].colour    = "black"
     length_unit = units.AU#aR
-    fig = plt.figure(figsize=(14,8), dpi=600)
+    fig = plt.figure(figsize=(14,8), dpi=150)
     axes  = []
     axes.append(fig.add_subplot(1,2,1,aspect=1))
     axes.append(fig.add_subplot(1,2,2,aspect=1))
@@ -214,7 +214,6 @@ def plot_system(
         ax.set_ylabel("[%s]"%length_unit)
 
         r       = particles.radius.value_in(length_unit)
-        r[2:] *= 10
         N       = len(particles)
         # Calculate radius in pixels :
         rr_pix  = (ax.transData.transform(np.vstack([r, r]).T) -
