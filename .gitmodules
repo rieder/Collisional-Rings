@@ -1,0 +1,4 @@
+[submodule "amuse"]
+	path = amuse
+	url = git@github.com:rieder/amuse.git
+	branch = master

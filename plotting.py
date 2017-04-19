@@ -131,14 +131,15 @@ def plot_system(
         plot_roche = True,
         time = 0|units.yr,
         ):
-    xmin = [2.5, 0.]
-    xmax = [2.5, 2.5]
+    xmin = [2.5, 1.]
+    xmax = [2.5, 1.]
     ymin = [2.5, 0.25]
     ymax = [2.5, 0.25]
     particles               = particles.copy()
     particles[0].colour     = "orange"
     particles[1].colour     = "red"
     particles[2:].colour    = "black"
+    
     length_unit = units.AU#aR
     fig = plt.figure(figsize=(14,8), dpi=150)
     axes  = []
@@ -153,8 +154,9 @@ def plot_system(
     z = particles.z - center.z
     r = (x**2 + y**2)**0.5
     #r = (particles.position - most_massive.position).lengths()
-    x_axes = [x,r]
+    x_axes = [x,y]
     y_axes = [y,z]
+    z_axes = [z,x]
     minmax = 1 + np.floor(
             max(
                 -x_axes[0].min().value_in(length_unit),
@@ -179,17 +181,19 @@ def plot_system(
     #axes[0].add_artist(roche)
 
     for i in range(len(axes)):
+        order = np.argsort(z_axes[i].value_in(length_unit))
         ax = axes[i]
 
         if scatter:
             scat = ax.scatter(
-                    (x_axes[i]).value_in(length_unit),
-                    (y_axes[i]).value_in(length_unit),
+                    (x_axes[i][order]).value_in(length_unit),
+                    (y_axes[i][order]).value_in(length_unit),
                     marker      = 'o',
                     s           = 1,
                     edgecolors  = "none",
-                    facecolors  = particles.colour,
-                    #alpha       = 0.1,
+                    facecolors  = particles[order].colour,
+                    alpha       = 0.9,
+                    #zorder      = (z_axes[i]).value_in(length_unit),
                     )
         else:
             circles = []
@@ -224,9 +228,9 @@ def plot_system(
         rpix, _ = rr_pix.T
 
         # Calculate and update size in points:
-        size_pt = (2*rpix/fig.dpi*72)**2
+        size_pt = (2*rpix[order]/fig.dpi*72)**2
         scat.set_sizes(size_pt)
-    fig.suptitle("time: %011.2f yr"%(time.value_in(units.yr)),fontsize=14)
+    fig.suptitle("time: %011.3f yr"%(time.value_in(units.yr)),fontsize=14)
     plt.savefig(plotname, dpi=fig.dpi)
     plt.close(fig)
     return
