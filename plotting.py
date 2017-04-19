@@ -129,11 +129,12 @@ def plot_system(
         center_on_most_massive=True,
         center=VectorQuantity([0,0,0],units.AU),
         plot_roche = True,
+        time = 0|units.yr,
         ):
-    xmin = [2., 0.]
-    xmax = [2., 1.]
-    ymin = [2., 0.25]
-    ymax = [2., 0.25]
+    xmin = [2.5, 0.]
+    xmax = [2.5, 2.5]
+    ymin = [2.5, 0.25]
+    ymax = [2.5, 0.25]
     particles               = particles.copy()
     particles[0].colour     = "orange"
     particles[1].colour     = "red"
@@ -214,6 +215,8 @@ def plot_system(
         ax.set_ylabel("[%s]"%length_unit)
 
         r       = particles.radius.value_in(length_unit)
+        r[0]  = r[1]*0.5
+        #r[2:] *= 3
         N       = len(particles)
         # Calculate radius in pixels :
         rr_pix  = (ax.transData.transform(np.vstack([r, r]).T) -
@@ -223,6 +226,7 @@ def plot_system(
         # Calculate and update size in points:
         size_pt = (2*rpix/fig.dpi*72)**2
         scat.set_sizes(size_pt)
+    fig.suptitle("time: %011.2f yr"%(time.value_in(units.yr)),fontsize=14)
     plt.savefig(plotname, dpi=fig.dpi)
     plt.close(fig)
     return

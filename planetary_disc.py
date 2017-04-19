@@ -747,6 +747,7 @@ def main(options):
                     "%s/plot-%05i.png"%(plotdir,plot),
                     center_on_most_massive=False,
                     center = planetary_disc.planet.position,
+                    time = planetary_disc.model_time,
                     )
             plot += 1
             plot_time += plot_timestep
@@ -808,16 +809,16 @@ def main(options):
 
 if __name__ == "__main__":
     options     = {}
-    options["verbose"]          = 1
+    options["verbose"]          = 0
     options["rubblepile"]       = True
-    options["gravity"]          = "Rebound"
+    options["gravity"]          = "Bonsai"
     options["integrator"]       = "leapfrog"
     options["whfast_corrector"] = 0
     options["use_gpu"]          = True
     options["time_start"]       = 0. | units.yr
     options["time_end"]         = 10000. |units.yr 
     #options["timestep"]         = 24 |units.hour
-    options["timestep_plot"]    = 24 |units.hour
+    options["timestep_plot"]    = 2 | units.day#0.275 | units.yr
     options["timestep_backup"]  = 365.25 |units.day 
     options["unit_mass"]        = 80*units.MJupiter
     options["disable_collisions"]   = False
