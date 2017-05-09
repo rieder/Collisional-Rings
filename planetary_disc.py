@@ -1,4 +1,6 @@
 # coding: utf-8
+from __future__ import print_function #prepare for python3
+
 import os,sys,shutil
 import time as clocktime
 
@@ -332,12 +334,12 @@ class Resolve_Encounters(object):
             dist = (seed.position-merge_with.position).lengths()
 
             if merge_with.key in self.particles_removed.key:
-                print "already merged!"
+                print("already merged!")
                 break
 
             if seed.key in self.particles_removed.key:
-                print "This should never happen!"
-                print seed.key
+                print("This should never happen!")
+                print(seed.key)
                 break
 
             if seed.key in self.particles_modified.key:
@@ -424,30 +426,30 @@ class Planetary_Disc(object):
 
     def evolve_model(self,time):
         if options["verbose"]>0:
-            print "#Evolving to %s"%(time/self.timestep)
+            print("#Evolving to %s"%(time/self.timestep))
         if time > self.model_time:
-            #print self.particles[0]
+            #print(self.particles[0])
             number_of_encounters = 0
             last_encounter_0 = -1
             last_encounter_1 = -1
             if options["verbose"]>0:
-                print "#%s > %s, evolving..."%(
+                print("#%s > %s, evolving..."%(
                         time/self.timestep, 
                         self.model_time/self.timestep,
-                        )
+                        ))
             self.integrator.evolve_model(time + 0.000001*self.timestep)
             if options["verbose"]>0:
-                print "#integrator now at %s"%(self.integrator.model_time/self.timestep)
+                print("#integrator now at %s"%(self.integrator.model_time/self.timestep))
 
             # Detect an error, save data in that case
             if self.integrator.particles[0].x.number == np.nan:
                 self.exit_graceful()
             else:
                 if options["verbose"]>0:
-                    print "#Updating model"
+                    print("#Updating model")
                 self.from_integrator_to_particles.copy()
                 if options["verbose"]>0:
-                    print "#Getting energies from model"
+                    print("#Getting energies from model")
                 self.model_time             = self.integrator.model_time
                 self.kinetic_energy         = self.integrator.kinetic_energy
                 self.potential_energy       = self.integrator.potential_energy
@@ -457,9 +459,9 @@ class Planetary_Disc(object):
                     self.options["gravity"]=="Bonsai"
                     ):
                 if self.options["verbose"]>0:
-                    print "#Timesteps completed: %s"%(self.integrator.model_time / self.timestep)
+                    print("#Timesteps completed: %s"%(self.integrator.model_time / self.timestep))
             if options["verbose"]>0:
-                print "#Handling collisions"
+                print("#Handling collisions")
             if self.collision_detection.is_set():
                 number_of_loops = 0
                 if self.options["gravity"] == "ph4":
@@ -488,12 +490,12 @@ class Planetary_Disc(object):
                     #            (1e-10|nbody_system.mass)
                     #            ).value_in(units.MEarth)
                     #        ):
-                    #    print "#Mass changed!", (m_after - m_before).as_quantity_in(units.MEarth)
+                    #    print("#Mass changed!", (m_after - m_before).as_quantity_in(units.MEarth))
                     self.integrator.evolve_model(time + 0.000001*self.timestep)
             if self.options["verbose"]>0:
-                print "#Handled %i encounters this timestep"%(number_of_encounters)
+                print("#Handled %i encounters this timestep"%(number_of_encounters))
             if options["verbose"]>0:
-                print "#Done"
+                print("#Done")
 
     def define_subgroups(self):
         #self.star       = self.particles[0]
@@ -524,14 +526,14 @@ class Planetary_Disc(object):
     def remove_particles(self, particles):
         if len(particles) > 0:
             if options["verbose"]>0:
-                print "#Removing %i particles"%(len(particles))
+                print("#Removing %i particles"%(len(particles)))
             #from_encounter_to_particles = \
             #        particles.new_channel_to(self.particles)
             #from_encounter_to_particles.copy_attributes(self.sync_attributes)
             #self.from_particles_to_integrator.copy_attributes(self.sync_attributes)
             self.integrator.particles.remove_particles(particles)
             self.particles.remove_particles(particles)
-            #print len(self.particles),len(self.integrator.particles)
+            #print(len(self.particles),len(self.integrator.particles))
             self.define_subgroups()
 
     def add_integrator(self, integrator):
@@ -554,10 +556,10 @@ class Planetary_Disc(object):
             self,
             ):
         if options["verbose"]>1:
-            print "%d : Resolving encounters"%(clocktime.time()-starttime)
+            print("%d : Resolving encounters"%(clocktime.time()-starttime))
         #f   = 1.0 # fraction of the Hill radius
-        #print self.integrator.particles[0]
-        #print self.particles[0]
+        #print(self.integrator.particles[0])
+        #print(self.particles[0])
         colliders_i = self.particles.get_indices_of_keys(self.collision_detection.particles(0).key)
         colliders_j = self.particles.get_indices_of_keys(self.collision_detection.particles(1).key)
         d_pos, d_vel = self.CollisionResolver.handle_collisions(self.particles,colliders_i,colliders_j)
@@ -574,8 +576,8 @@ class Planetary_Disc(object):
         self.planet.velocity    = planet_and_colliders.center_of_mass_velocity()
         self.planet.mass        = planet_and_colliders.mass.sum()
         self.remove_particles(self.disc[colliding_with_planet])
-        #print self.integrator.particles[0]
-        #print self.particles[0]
+        #print(self.integrator.particles[0])
+        #print(self.particles[0])
         #self.disc[colliding_with_planet].x *= 50
         #self.disc[colliding_with_planet].mass *= 0
         #self.disc[colliding_with_planet].radius *= 0
@@ -596,7 +598,7 @@ def main(options):
 
     time        = options["time_start"]
     if options["verbose"]>1:
-        print "%d : Start reading particles"%(clocktime.time()-starttime)
+        print("%d : Start reading particles"%(clocktime.time()-starttime))
     if len(sys.argv) >= 2:
         filename = sys.argv[1]
         ext = filename.split('.')[-1]
@@ -604,14 +606,14 @@ def main(options):
             particles = read_set_from_file(filename, "amuse")
             rundir = "./runs/" + filename.split('/')[-1][:-5] 
         else:
-            print "Unknown filetype"
+            print("Unknown filetype")
             exit()
 
     else:
-        print "No initial conditions given"
+        print("No initial conditions given")
         exit()
     if options["verbose"]>1:
-        print "%d : Read particles"%(clocktime.time()-starttime)
+        print("%d : Read particles"%(clocktime.time()-starttime))
 
     
     rundir += "-%s-%s"%(
@@ -632,7 +634,7 @@ def main(options):
     except:
         #FIXME make a new dir in this case, to prevent overwriting old files
         # use a datetime stamp
-        print "#directories already present"
+        print("#directories already present")
         exit()
 
     particles[0].colour = "blue"
@@ -651,7 +653,7 @@ def main(options):
     options["timestep"] = (kepler_time/(2*np.pi))*(2**-4)
     
     if options["verbose"]>1:
-        print "%d : Starting gravity"%(clocktime.time()-starttime)
+        print("%d : Starting gravity"%(clocktime.time()-starttime))
     # Start up gravity code 
     if options["gravity"] == "Rebound":
         gravity = Rebound(converter,redirection="none")
@@ -693,9 +695,9 @@ def main(options):
         gravity.parameters.dt_min = options["timestep"]
         gravity.parameters.dt_max = options["timestep"]
     else:
-        print "Unknown gravity code"
+        print("Unknown gravity code")
         exit()
-    print gravity.parameters
+    print(gravity.parameters)
 
     planetary_disc = Planetary_Disc(options)
     planetary_disc.add_integrator(gravity)
@@ -737,11 +739,11 @@ def main(options):
 
     time += options["timestep"]
     if options["verbose"]>1:
-        print "%d : Starting loop"%(clocktime.time()-starttime)
+        print("%d : Starting loop"%(clocktime.time()-starttime))
     while time < t_end:
         if time >= plot_time:
             if options["verbose"]>1:
-                print "%d : Making plot"%(clocktime.time()-starttime)
+                print("%d : Making plot"%(clocktime.time()-starttime))
             plot_system(
                     planetary_disc.particles,
                     "%s/plot-%05i.png"%(plotdir,plot),
@@ -753,16 +755,16 @@ def main(options):
             plot_time += plot_timestep
         if time >= backup_time:
             if options["verbose"]>1:
-                print "%d : Making backup"%(clocktime.time()-starttime)
+                print("%d : Making backup"%(clocktime.time()-starttime))
             planetary_disc.write_backup(filename="%s/savefile-%i.hdf5"%(backupdir,backup))
             backup += 1
             backup_time += backup_timestep
         if (time - planetary_disc.model_time) <= 0.5 * timestep:
             if options["verbose"]>0:
-                print "#Increasing timestep: %s - %s <= 0.5"%(
+                print("#Increasing timestep: %s - %s <= 0.5"%(
                         planetary_disc.model_time / planetary_disc.timestep, 
                         time / planetary_disc.timestep,
-                        )
+                        ))
             time += timestep
             kinetic_energy = planetary_disc.kinetic_energy
             potential_energy = planetary_disc.potential_energy
@@ -798,10 +800,10 @@ def main(options):
             log.flush()
         else:
             if options["verbose"]>0:
-                print "#Not increasing timestep: %s - %s > 0.5"%(
+                print("#Not increasing timestep: %s - %s > 0.5"%(
                         planetary_disc.model_time / planetary_disc.timestep, 
                         time / planetary_disc.timestep,
-                        )
+                        ))
         planetary_disc.evolve_model(time)
 
     gravity.stop()
