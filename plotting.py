@@ -1,3 +1,6 @@
+# coding: utf-8
+from __future__ import print_function #prepare for python3
+
 import sys
 from amuse.lab import *
 import matplotlib.pyplot as plt
@@ -220,7 +223,7 @@ def plot_system(
 
         r       = particles.radius.value_in(length_unit)
         r[0]  = r[1]*0.5
-        #r[2:] *= 3
+        r[2:] *= np.sqrt(444600)#1e4#444600
         N       = len(particles)
         # Calculate radius in pixels :
         rr_pix  = (ax.transData.transform(np.vstack([r, r]).T) -

@@ -1,3 +1,6 @@
+# coding: utf-8
+from __future__ import print_function #prepare for python3
+
 import sys
 import numpy
 
